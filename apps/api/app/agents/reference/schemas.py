@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
+from app.schemas.turns import ReferenceAnswer
 
 
-class ReferenceAgentOutput(BaseModel):
-    answer_script: str = Field(default="", description="Placeholder reference answer")
+class ReferenceAgentOutput(ReferenceAnswer):
+    pass

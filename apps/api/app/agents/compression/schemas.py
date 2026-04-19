@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
+from app.schemas.turns import CompressedTurnSummary
 
 
-class CompressionAgentOutput(BaseModel):
-    summary: str = Field(default="", description="Placeholder compressed turn summary")
+class CompressionAgentOutput(CompressedTurnSummary):
+    pass

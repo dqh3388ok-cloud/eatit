@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
+from app.schemas.turns import NormalizedQuestion
 
 
-class InterviewerAgentOutput(BaseModel):
-    question_text: str = Field(default="", description="Placeholder interviewer question")
+class InterviewerAgentOutput(NormalizedQuestion):
+    pass

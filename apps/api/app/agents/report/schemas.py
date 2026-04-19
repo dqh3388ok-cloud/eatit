@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
+from app.schemas.reports import InterviewReportPayload
 
 
-class ReportAgentOutput(BaseModel):
-    overall_summary: str = Field(default="", description="Placeholder report summary")
+class ReportAgentOutput(InterviewReportPayload):
+    pass

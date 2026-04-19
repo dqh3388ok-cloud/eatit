@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
+from app.schemas.frameworks import DirectionFramework
 
 
-class FrameworkAgentOutput(BaseModel):
-    framework_summary: str = Field(default="", description="Placeholder framework result")
+class FrameworkAgentOutput(DirectionFramework):
+    pass

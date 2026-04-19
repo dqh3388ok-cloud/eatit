@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
+from app.schemas.parse import ParseResultPayload
 
 
-class ParseAgentOutput(BaseModel):
-    match_summary: str = Field(default="", description="Placeholder parse result")
+class ParseAgentOutput(ParseResultPayload):
+    pass
