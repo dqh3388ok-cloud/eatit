@@ -83,3 +83,9 @@ Eatit is a monorepo for a resume + JD driven AI mock interview product. This sta
 - Shared types package placeholder
 
 This README will be expanded as the project moves into real product modules.
+
+## Phase 2 Snapshot
+
+- Backend now includes the initial Postgres schema, Alembic migration, Pydantic API contracts, mock `/api/v1` endpoints, and a placeholder WebSocket session endpoint
+- Desktop now includes typed API hooks in `apps/desktop/src/api` and shared contracts in `packages/shared-types`
+- Current auth is a fixed mock dependency for local development and test wiring
