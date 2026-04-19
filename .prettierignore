@@ -1,0 +1,6 @@
+node_modules
+dist
+coverage
+apps/desktop/src-tauri/target
+apps/api/.venv
+apps/api/alembic/versions

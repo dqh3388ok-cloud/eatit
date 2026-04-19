@@ -1,0 +1,43 @@
+# Node
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+
+# Tauri / Rust
+src-tauri/target/
+apps/desktop/src-tauri/target/
+target/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+apps/api/.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+apps/api/.venv/
+.coverage
+htmlcov/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Build artifacts
+build/
+apps/desktop/dist/
+.turbo/
