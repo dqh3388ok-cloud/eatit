@@ -18,33 +18,37 @@ branch_labels = None
 depends_on = None
 
 
-candidate_asset_status = sa.Enum(
+candidate_asset_status = postgresql.ENUM(
     "draft",
     "ready_for_parse",
     "parse_in_progress",
     "analysis_ready",
     "parse_failed",
     name="candidate_asset_status",
+    create_type=False,
 )
-parse_result_status = sa.Enum(
+parse_result_status = postgresql.ENUM(
     "pending",
     "succeeded",
     "failed",
     name="parse_result_status",
+    create_type=False,
 )
-interview_style = sa.Enum(
+interview_style = postgresql.ENUM(
     "friendly_guided",
     "standard_professional",
     "high_pressure_followup",
     name="interview_style",
+    create_type=False,
 )
-interview_direction = sa.Enum(
+interview_direction = postgresql.ENUM(
     "role_match",
     "project_deep_dive",
     "behavioral_comprehensive",
     name="interview_direction",
+    create_type=False,
 )
-interview_session_status = sa.Enum(
+interview_session_status = postgresql.ENUM(
     "created",
     "session_started",
     "turn_recording",
@@ -59,13 +63,15 @@ interview_session_status = sa.Enum(
     "report_ready",
     "failed",
     name="interview_session_status",
+    create_type=False,
 )
-interview_report_status = sa.Enum(
+interview_report_status = postgresql.ENUM(
     "pending",
     "generating",
     "ready",
     "failed",
     name="interview_report_status",
+    create_type=False,
 )
 
 
