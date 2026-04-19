@@ -2,15 +2,13 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import Field
-
 from app.models.enums import CandidateAssetStatus
 from app.schemas.common import SchemaModel, TimestampedResponse
 from app.schemas.parse import ParseResultPreview, ParseRequestResponse, ParseResultResponse
 
 
 class AssetUploadResponse(TimestampedResponse):
-    asset_bundle_id: UUID = Field(alias="id")
+    asset_bundle_id: UUID
     status: CandidateAssetStatus
     uploaded_kind: str
 
