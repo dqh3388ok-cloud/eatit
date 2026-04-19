@@ -22,9 +22,7 @@ class AuthenticatedUser(BaseModel):
     email: str
 
 
-async def get_current_user(
-    session: AsyncSession = Depends(get_async_session),
-) -> AuthenticatedUser:
+async def ensure_mock_user(session: AsyncSession) -> AuthenticatedUser:
     result = await session.execute(select(User).where(User.id == MOCK_USER_ID))
     user = result.scalar_one_or_none()
 
@@ -35,3 +33,18 @@ async def get_current_user(
         await session.refresh(user)
 
     return AuthenticatedUser.model_validate(user)
+
+
+async def get_current_user(
+    session: AsyncSession = Depends(get_async_session),
+) -> AuthenticatedUser:
+    return await ensure_mock_user(session)
+
+
+async def get_websocket_user(
+    token: str,
+    session: AsyncSession,
+) -> AuthenticatedUser:
+    if not token.strip():
+        raise ValueError("Missing websocket token.")
+    return await ensure_mock_user(session)
