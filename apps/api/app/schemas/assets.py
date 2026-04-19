@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import Field
 
 from app.models.enums import CandidateAssetStatus
-from app.schemas.common import TimestampedResponse
+from app.schemas.common import SchemaModel, TimestampedResponse
 from app.schemas.parse import ParseResultPreview, ParseRequestResponse, ParseResultResponse
 
 
@@ -13,6 +13,10 @@ class AssetUploadResponse(TimestampedResponse):
     asset_bundle_id: UUID = Field(alias="id")
     status: CandidateAssetStatus
     uploaded_kind: str
+
+
+class AssetUploadRequest(SchemaModel):
+    asset_bundle_id: UUID | None = None
 
 
 class CandidateAssetResponse(TimestampedResponse):

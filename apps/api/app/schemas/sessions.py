@@ -28,6 +28,12 @@ class CreateSessionRequest(SchemaModel):
     config: InterviewConfigRequest
 
 
+class SessionListRequest(SchemaModel):
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=20, ge=1, le=100)
+    status: InterviewSessionStatus | None = None
+
+
 class CreateSessionResponse(SchemaModel):
     session_id: UUID
     status: InterviewSessionStatus

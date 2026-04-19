@@ -28,6 +28,10 @@ class TriggerReportResponse(SchemaModel):
     requested_at: datetime
 
 
+class TriggerReportRequest(SchemaModel):
+    force_regenerate: bool = False
+
+
 class InterviewReportResponse(TimestampedResponse):
     interview_session_id: UUID
     status: InterviewReportStatus

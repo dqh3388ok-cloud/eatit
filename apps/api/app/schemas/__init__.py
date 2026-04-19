@@ -1,4 +1,4 @@
-from app.schemas.assets import AssetUploadResponse, CandidateAssetResponse
+from app.schemas.assets import AssetUploadRequest, AssetUploadResponse, CandidateAssetResponse
 from app.schemas.frameworks import DirectionFramework, FrameworkStage
 from app.schemas.parse import (
     CandidateHighlight,
@@ -15,6 +15,7 @@ from app.schemas.reports import (
     InterviewReportResponse,
     ReportStatusResponse,
     RoundReview,
+    TriggerReportRequest,
     TriggerReportResponse,
 )
 from app.schemas.sessions import (
@@ -37,6 +38,7 @@ from app.schemas.turns import (
 
 __all__ = [
     "AssetUploadResponse",
+    "AssetUploadRequest",
     "CandidateAssetResponse",
     "CandidateHighlight",
     "CandidateRisk",
@@ -66,4 +68,5 @@ __all__ = [
     "SessionListResponse",
     "SessionSummary",
     "TriggerReportResponse",
+    "TriggerReportRequest",
 ]
