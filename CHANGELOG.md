@@ -14,6 +14,7 @@
 - add mock REST endpoints under `/api/v1` with fixed mock auth dependency
 - add WebSocket protocol skeleton with `client.*` / `server.*` event namespaces and binary/text frame dispatch
 - add TypeScript shared contract mirror and desktop API/query/websocket client
+- validate the initial migration against a real local PostgreSQL instance and fix duplicate enum creation by switching the migration to PostgreSQL-native enums with `create_type=False`
 
 ### Key Decisions
 
