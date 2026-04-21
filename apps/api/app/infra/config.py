@@ -8,6 +8,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[4]
 ROOT_ENV_PATH = Path(__file__).resolve().parents[4] / ".env"
 API_ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 DEFAULT_DATABASE_URL = "sqlite+aiosqlite:///./.data/eatit.db"
+DEFAULT_DEVELOPMENT_CACHE_DIR = ".data/cache"
+DEFAULT_PRODUCTION_CACHE_DIR = "~/Library/Application Support/Eatit/cache"
 
 
 class Settings(BaseSettings):
@@ -17,6 +19,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     database_url: str = DEFAULT_DATABASE_URL
+    cache_dir: str | None = None
     redis_url: str = "redis://localhost:6379/0"
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "eatitminio"
@@ -48,3 +51,13 @@ def resolve_database_url(database_url: str) -> str:
         resolved_path = (PROJECT_ROOT / relative_path).resolve()
         return f"sqlite+aiosqlite:///{resolved_path.as_posix()}"
     return database_url
+
+
+def resolve_cache_dir(cache_dir: str | None, app_env: str) -> Path:
+    raw_path = cache_dir or (
+        DEFAULT_DEVELOPMENT_CACHE_DIR if app_env == "development" else DEFAULT_PRODUCTION_CACHE_DIR
+    )
+    path = Path(raw_path).expanduser()
+    if not path.is_absolute():
+        path = (PROJECT_ROOT / path).resolve()
+    return path
