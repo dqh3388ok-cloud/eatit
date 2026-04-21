@@ -1,6 +1,6 @@
 # Eatit
 
-Eatit is a monorepo for a resume + JD driven AI mock interview product. This stage provides a local development scaffold for a Tauri desktop client, a FastAPI backend, and local infrastructure with PostgreSQL, Redis, and MinIO.
+Eatit is a monorepo for a resume + JD driven AI mock interview product. The current local main track is a zero-container desktop-friendly stack built on Tauri, FastAPI, SQLite, diskcache, local filesystem storage, and an in-process asyncio task queue.
 
 ## Structure
 
@@ -14,8 +14,16 @@ Eatit is a monorepo for a resume + JD driven AI mock interview product. This sta
 - `pnpm` or `corepack pnpm`
 - Python 3.11+
 - `uv`
-- Docker with Compose support
 - Rust toolchain for Tauri desktop development
+
+## Runtime Model
+
+- Main local development path: no Docker required
+- Default persistence: SQLite at `.data/eatit.db`
+- Default cache: diskcache at `.data/cache`
+- Default file storage: local filesystem at `.data/storage`
+- Default background tasks: in-process asyncio task queue
+- Optional only: `docker-compose.yml` for compatibility debugging of legacy PostgreSQL / Redis / MinIO behavior
 
 ## Quick Start
 
@@ -44,48 +52,59 @@ Eatit is a monorepo for a resume + JD driven AI mock interview product. This sta
    cd apps/api && uv sync
    ```
 
-4. Start local infrastructure:
+4. Run SQLite migrations:
 
    ```bash
-   docker-compose up -d
+   cd apps/api && uv run alembic upgrade head
    ```
 
-5. Start the desktop app:
-
-   ```bash
-   cd apps/desktop && pnpm tauri dev
-   ```
-
-6. Start the API server:
+5. Start the API server:
 
    ```bash
    cd apps/api && uv run uvicorn app.main:app --reload
    ```
 
-7. Verify the health endpoint:
+6. Verify the health endpoint:
 
    ```bash
    curl localhost:8000/health
    ```
 
-8. Run backend tests:
+7. Run backend tests:
 
    ```bash
-   cd apps/api && uv run pytest
+   cd apps/api && uv run pytest -v
    ```
+
+8. Start the desktop app:
+
+   ```bash
+   cd apps/desktop && corepack pnpm tauri dev
+   ```
+
+## Optional Compatibility Debugging
+
+If you explicitly need to inspect legacy containerized behavior, you can start the optional stack:
+
+   ```bash
+   docker compose up -d
+   ```
+
+That stack is only for local debugging of PostgreSQL, Redis, and MinIO compatibility. It is not required for the main desktop application flow.
 
 ## Current Stage Scope
 
 - Monorepo workspace wiring
 - Desktop hello world shell with route debug entries
 - API hello world shell with `/health`
-- Docker Compose for PostgreSQL, Redis, and MinIO
+- SQLite mainline persistence with local cache, storage, and task queue abstractions
+- Optional Docker Compose stack for legacy infrastructure compatibility checks
 - Shared types package placeholder
 
 This README will be expanded as the project moves into real product modules.
 
 ## Phase 2 Snapshot
 
-- Backend now includes the initial Postgres schema, Alembic migration, Pydantic API contracts, mock `/api/v1` endpoints, and a placeholder WebSocket session endpoint
+- Backend now includes the SQLite mainline schema, Alembic migration, Pydantic API contracts, mock `/api/v1` endpoints, and a placeholder WebSocket session endpoint
 - Desktop now includes typed API hooks in `apps/desktop/src/api` and shared contracts in `packages/shared-types`
 - Current auth is a fixed mock dependency for local development and test wiring

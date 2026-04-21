@@ -1,3 +1,7 @@
+# Optional development-only infrastructure for compatibility debugging.
+# Production desktop builds do not depend on containers.
+# Start this stack only when you explicitly want to inspect legacy
+# PostgreSQL / Redis / MinIO behavior during local development.
 services:
   postgres:
     image: postgres:16
