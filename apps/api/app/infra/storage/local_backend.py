@@ -31,6 +31,7 @@ class LocalFilesystemBackend(StorageInterface):
         if not exists:
             return False
         await anyio.to_thread.run_sync(target_path.unlink)
+        await anyio.to_thread.run_sync(lambda: self._prune_empty_parents(target_path.parent))
         return True
 
     async def exists(self, file_ref: str) -> bool:
@@ -54,3 +55,12 @@ class LocalFilesystemBackend(StorageInterface):
         if normalized in {"", "."}:
             raise ValueError("file_ref must not be empty.")
         return normalized
+
+    def _prune_empty_parents(self, path: Path) -> None:
+        current = path
+        while current != self.storage_dir and current.is_relative_to(self.storage_dir):
+            try:
+                current.rmdir()
+            except OSError:
+                break
+            current = current.parent

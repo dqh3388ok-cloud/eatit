@@ -7,9 +7,11 @@ from fastapi import APIRouter, Body, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import AuthenticatedUser, get_current_user
+from app.api.dependencies.tasks import get_task_queue
 from app.domain.reports.service import ReportsService
 from app.domain.sessions.service import SessionsService
 from app.infra.db import get_async_session
+from app.infra.tasks import TaskQueueInterface
 from app.schemas.reports import InterviewReportResponse, TriggerReportRequest, TriggerReportResponse
 from app.schemas.sessions import (
     CreateSessionRequest,
@@ -68,8 +70,15 @@ async def trigger_report(
     request: TriggerReportRequest = Body(default_factory=TriggerReportRequest),
     current_user: AuthenticatedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
+    task_queue: TaskQueueInterface = Depends(get_task_queue),
 ) -> TriggerReportResponse:
-    return await reports_service.trigger_report(session, current_user, session_id, request)
+    return await reports_service.trigger_report(
+        session,
+        current_user,
+        task_queue,
+        session_id,
+        request,
+    )
 
 
 @router.get("/{session_id}/report", response_model=InterviewReportResponse)

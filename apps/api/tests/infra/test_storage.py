@@ -7,6 +7,7 @@ from app.infra.storage.local_backend import LocalFilesystemBackend
 
 async def test_local_storage_backend_crud_and_url(tmp_path: Path) -> None:
     storage = LocalFilesystemBackend(tmp_path / "storage")
+    file_path = tmp_path / "storage" / "assets" / "resume" / "test-asset" / "resume.txt"
 
     file_ref = await storage.upload("assets/resume/test-asset/resume.txt", b"hello")
 
@@ -17,6 +18,7 @@ async def test_local_storage_backend_crud_and_url(tmp_path: Path) -> None:
     assert await storage.delete(file_ref) is True
     assert await storage.exists(file_ref) is False
     assert await storage.delete(file_ref) is False
+    assert file_path.exists() is False
 
 
 async def test_local_storage_backend_creates_directory(tmp_path: Path) -> None:
@@ -28,3 +30,4 @@ async def test_local_storage_backend_creates_directory(tmp_path: Path) -> None:
 
     assert storage_dir.exists() is True
     assert await storage.download(file_ref) == b"job-description"
+    assert await storage.delete(file_ref) is True

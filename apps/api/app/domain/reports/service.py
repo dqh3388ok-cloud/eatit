@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.dependencies.auth import AuthenticatedUser
+from app.infra.db import AsyncSessionFactory
+from app.infra.tasks import TaskQueueInterface
 from app.models.enums import InterviewReportStatus, InterviewSessionStatus
 from app.models.report import InterviewReport
 from app.models.session import InterviewSession
@@ -28,12 +30,12 @@ class ReportsService:
         self,
         session: AsyncSession,
         current_user: AuthenticatedUser,
+        task_queue: TaskQueueInterface,
         session_id: UUID,
         request: TriggerReportRequest,
     ) -> TriggerReportResponse:
         interview_session = await self._get_owned_session(session, current_user, str(session_id))
         now = datetime.now(UTC)
-        payload = self._mock_report_payload()
 
         result = await session.execute(
             select(InterviewReport).where(InterviewReport.interview_session_id == interview_session.id)
@@ -42,24 +44,28 @@ class ReportsService:
         if report is None:
             report = InterviewReport(
                 interview_session_id=interview_session.id,
-                status=InterviewReportStatus.READY,
+                status=InterviewReportStatus.GENERATING,
                 requested_at=now,
-                generated_at=now,
-                payload=payload.model_dump(mode="json"),
+                generated_at=None,
+                payload={},
             )
             session.add(report)
-        elif request.force_regenerate or report.status != InterviewReportStatus.READY:
-            report.status = InterviewReportStatus.READY
+        elif request.force_regenerate or report.status != InterviewReportStatus.GENERATING:
+            report.status = InterviewReportStatus.GENERATING
             report.requested_at = now
-            report.generated_at = now
-            report.payload = payload.model_dump(mode="json")
+            report.generated_at = None
+            report.payload = {}
 
-        interview_session.status = InterviewSessionStatus.REPORT_READY
+        interview_session.status = InterviewSessionStatus.REPORT_GENERATING
         await session.commit()
+        await task_queue.enqueue(
+            task_name=f"generate-report:{interview_session.id}",
+            task_factory=lambda: self._generate_report_task(interview_session.id),
+        )
 
         return TriggerReportResponse(
             session_id=interview_session.id,
-            status=InterviewReportStatus.READY,
+            status=InterviewReportStatus.GENERATING,
             requested_at=now,
         )
 
@@ -76,6 +82,11 @@ class ReportsService:
         report = result.scalar_one_or_none()
         if report is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+        if report.status != InterviewReportStatus.READY or not report.payload:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Report is still generating.",
+            )
 
         return InterviewReportResponse(
             id=report.id,
@@ -129,6 +140,40 @@ class ReportsService:
         if interview_session is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
         return interview_session
+
+    async def _generate_report_task(self, session_id: str) -> None:
+        async with AsyncSessionFactory() as session:
+            result = await session.execute(
+                select(InterviewSession).where(InterviewSession.id == session_id)
+            )
+            interview_session = result.scalar_one_or_none()
+            if interview_session is None:
+                return
+
+            now = datetime.now(UTC)
+            payload = self._mock_report_payload()
+            result = await session.execute(
+                select(InterviewReport).where(InterviewReport.interview_session_id == interview_session.id)
+            )
+            report = result.scalar_one_or_none()
+            if report is None:
+                report = InterviewReport(
+                    interview_session_id=interview_session.id,
+                    status=InterviewReportStatus.READY,
+                    requested_at=now,
+                    generated_at=now,
+                    payload=payload.model_dump(mode="json"),
+                )
+                session.add(report)
+            else:
+                report.status = InterviewReportStatus.READY
+                report.generated_at = now
+                report.payload = payload.model_dump(mode="json")
+                if report.requested_at is None:
+                    report.requested_at = now
+
+            interview_session.status = InterviewSessionStatus.REPORT_READY
+            await session.commit()
 
     @staticmethod
     def _mock_report_payload() -> InterviewReportPayload:
