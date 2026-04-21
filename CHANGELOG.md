@@ -23,3 +23,24 @@
 - UUID primary keys use application-generated UUIDv7 via `uuid-utils`
 - mock auth currently returns fixed user `01964b52-1a8d-7b10-8d75-f0d4c7f00001 / mock-user@eatit.local`
 - auth placeholder lives in `apps/api/app/api/dependencies/auth.py`
+
+## 0.2.5
+
+- switch the local main track from PostgreSQL / Redis / MinIO / Celery to SQLite / diskcache / local filesystem storage / asyncio task queue
+- move the original PostgreSQL Alembic migration into a legacy track and start a new SQLite mainline migration
+- make ORM models dialect-agnostic by replacing database UUID columns with `String(36)`, `JSONB` with `JSON`, and database enums with string columns plus Python `StrEnum`
+- enable SQLite desktop-friendly pragmas at engine startup: `journal_mode=WAL`, `synchronous=NORMAL`, and `foreign_keys=ON`
+- add `CacheInterface` with a `DiskcacheBackend`
+- add `StorageInterface` with a `LocalFilesystemBackend`
+- add `TaskQueueInterface` with an `AsyncioBackend`
+- update asset uploads to persist files through the storage abstraction instead of returning `mock://minio/...` placeholders
+- update report generation to enqueue background work through the task queue abstraction instead of relying on Celery
+- downgrade `docker-compose.yml` to an optional compatibility debugging tool instead of a required local runtime dependency
+- update `README.md` to document the zero-container local development flow
+
+### Key Decisions
+
+- target users are C-end job seekers receiving a DMG installer, so the local main track must work without Docker, Colima, or any external services
+- SQLite is the primary local database because it supports zero-configuration desktop distribution; the PostgreSQL migration is kept as a legacy reference for possible future cloud deployment
+- cache, storage, and task execution now sit behind abstractions so the desktop build can stay lightweight while preserving a clean path back to Redis, object storage, or a distributed queue in the future
+- development defaults use project-local `.data/` directories, while production defaults resolve to `~/Library/Application Support/Eatit/`
