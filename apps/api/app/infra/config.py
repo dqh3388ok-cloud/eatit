@@ -23,11 +23,6 @@ class Settings(BaseSettings):
     database_url: str = DEFAULT_DATABASE_URL
     cache_dir: str | None = None
     storage_dir: str | None = None
-    redis_url: str = "redis://localhost:6379/0"
-    minio_endpoint: str = "localhost:9000"
-    minio_access_key: str = "eatitminio"
-    minio_secret_key: str = "eatitminio123"
-    minio_bucket: str = "eatit-dev"
     llm_api_key: str = ""
     deepgram_api_key: str = ""
     langfuse_public_key: str = ""
