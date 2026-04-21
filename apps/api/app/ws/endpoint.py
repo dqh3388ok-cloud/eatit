@@ -30,7 +30,7 @@ async def interview_socket(websocket: WebSocket, session_id: UUID) -> None:
 
         result = await session.execute(
             select(InterviewSession).where(
-                InterviewSession.id == session_id,
+                InterviewSession.id == str(session_id),
                 InterviewSession.user_id == current_user.id,
             )
         )

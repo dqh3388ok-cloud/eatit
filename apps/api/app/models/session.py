@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 from typing import Any
 
-from sqlalchemy import Enum, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDv7PrimaryKeyMixin
@@ -21,18 +19,20 @@ if TYPE_CHECKING:
 class InterviewSession(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "interview_sessions"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
+    user_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    candidate_asset_id: Mapped[uuid.UUID] = mapped_column(
+    candidate_asset_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("candidate_assets.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    status: Mapped[InterviewSessionStatus] = mapped_column(
-        Enum(InterviewSessionStatus, name="interview_session_status"),
+    status: Mapped[str] = mapped_column(
+        String(64),
         nullable=False,
         default=InterviewSessionStatus.CREATED,
         index=True,
@@ -41,7 +41,7 @@ class InterviewSession(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
     ended_at: Mapped[datetime | None] = mapped_column(nullable=True)
     turn_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     config_snapshot: Mapped[dict[str, Any]] = mapped_column(
-        JSONB,
+        JSON,
         nullable=False,
         default=dict,
     )
@@ -57,18 +57,19 @@ class InterviewSession(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
 class InterviewConfig(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "interview_configs"
 
-    interview_session_id: Mapped[uuid.UUID] = mapped_column(
+    interview_session_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("interview_sessions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         unique=True,
     )
-    style: Mapped[InterviewStyle] = mapped_column(
-        Enum(InterviewStyle, name="interview_style"),
+    style: Mapped[str] = mapped_column(
+        String(64),
         nullable=False,
     )
-    direction: Mapped[InterviewDirection] = mapped_column(
-        Enum(InterviewDirection, name="interview_direction"),
+    direction: Mapped[str] = mapped_column(
+        String(64),
         nullable=False,
     )
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -79,13 +80,14 @@ class InterviewConfig(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
 class DirectionFramework(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "direction_frameworks"
 
-    interview_session_id: Mapped[uuid.UUID] = mapped_column(
+    interview_session_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("interview_sessions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         unique=True,
     )
-    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 
     interview_session: Mapped["InterviewSession"] = relationship(back_populates="direction_framework")
 
@@ -93,7 +95,8 @@ class DirectionFramework(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
 class InterviewTurn(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "interview_turns"
 
-    interview_session_id: Mapped[uuid.UUID] = mapped_column(
+    interview_session_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("interview_sessions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -117,15 +120,16 @@ class InterviewTurn(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
 class TurnAssessment(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "turn_assessments"
 
-    interview_turn_id: Mapped[uuid.UUID] = mapped_column(
+    interview_turn_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("interview_turns.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         unique=True,
     )
-    strengths: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
-    weaknesses: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
-    evidence: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    strengths: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    weaknesses: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    evidence: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     score_optional: Mapped[float | None] = mapped_column(nullable=True)
 
     interview_turn: Mapped["InterviewTurn"] = relationship(back_populates="assessment")
@@ -134,17 +138,19 @@ class TurnAssessment(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
 class CompressedTurnSummary(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "compressed_turn_summaries"
 
-    interview_turn_id: Mapped[uuid.UUID] = mapped_column(
+    interview_turn_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("interview_turns.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         unique=True,
     )
-    interview_session_id: Mapped[uuid.UUID] = mapped_column(
+    interview_session_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("interview_sessions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 
     interview_turn: Mapped["InterviewTurn"] = relationship(back_populates="compressed_summary")

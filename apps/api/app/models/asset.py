@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import uuid
 from typing import TYPE_CHECKING
 from typing import Any
 
-from sqlalchemy import Enum, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDv7PrimaryKeyMixin
@@ -19,7 +17,8 @@ if TYPE_CHECKING:
 class CandidateAsset(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "candidate_assets"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(
+    user_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -30,8 +29,8 @@ class CandidateAsset(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
     jd_file_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
     jd_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     jd_content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    status: Mapped[CandidateAssetStatus] = mapped_column(
-        Enum(CandidateAssetStatus, name="candidate_asset_status"),
+    status: Mapped[str] = mapped_column(
+        String(64),
         nullable=False,
         default=CandidateAssetStatus.DRAFT,
     )
@@ -44,19 +43,20 @@ class CandidateAsset(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
 class ParseResult(UUIDv7PrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "parse_results"
 
-    candidate_asset_id: Mapped[uuid.UUID] = mapped_column(
+    candidate_asset_id: Mapped[str] = mapped_column(
+        String(36),
         ForeignKey("candidate_assets.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
         unique=True,
     )
-    status: Mapped[ParseResultStatus] = mapped_column(
-        Enum(ParseResultStatus, name="parse_result_status"),
+    status: Mapped[str] = mapped_column(
+        String(64),
         nullable=False,
         default=ParseResultStatus.PENDING,
     )
     payload: Mapped[dict[str, Any]] = mapped_column(
-        JSONB,
+        JSON,
         nullable=False,
         default=dict,
         comment="TODO: encrypt parse payload at rest before production launch.",

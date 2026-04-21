@@ -4,8 +4,10 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
 ROOT_ENV_PATH = Path(__file__).resolve().parents[4] / ".env"
 API_ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+DEFAULT_DATABASE_URL = "sqlite+aiosqlite:///./.data/eatit.db"
 
 
 class Settings(BaseSettings):
@@ -14,7 +16,7 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    database_url: str = "postgresql+asyncpg://eatit:eatit_dev_password@localhost:5432/eatit"
+    database_url: str = DEFAULT_DATABASE_URL
     redis_url: str = "redis://localhost:6379/0"
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "eatitminio"
@@ -37,3 +39,12 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
+
+
+def resolve_database_url(database_url: str) -> str:
+    relative_prefix = "sqlite+aiosqlite:///./"
+    if database_url.startswith(relative_prefix):
+        relative_path = database_url.removeprefix(relative_prefix)
+        resolved_path = (PROJECT_ROOT / relative_path).resolve()
+        return f"sqlite+aiosqlite:///{resolved_path.as_posix()}"
+    return database_url

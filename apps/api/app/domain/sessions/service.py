@@ -37,7 +37,7 @@ class SessionsService:
         current_user: AuthenticatedUser,
         request: CreateSessionRequest,
     ) -> CreateSessionResponse:
-        asset = await self._get_ready_asset(session, current_user, request.asset_bundle_id)
+        asset = await self._get_ready_asset(session, current_user, str(request.asset_bundle_id))
         parse_payload = await self._get_parse_payload(session, asset.id)
         framework = self._mock_direction_framework(request, parse_payload)
 
@@ -78,7 +78,7 @@ class SessionsService:
         current_user: AuthenticatedUser,
         session_id: UUID,
     ) -> SessionDetailResponse:
-        interview_session = await self._get_owned_session(session, current_user, session_id)
+        interview_session = await self._get_owned_session(session, current_user, str(session_id))
         return self._serialize_session_detail(interview_session)
 
     async def list_sessions(
@@ -113,7 +113,7 @@ class SessionsService:
         current_user: AuthenticatedUser,
         session_id: UUID,
     ) -> EndSessionResponse:
-        interview_session = await self._get_owned_session(session, current_user, session_id)
+        interview_session = await self._get_owned_session(session, current_user, str(session_id))
         interview_session.status = InterviewSessionStatus.ENDED
         interview_session.ended_at = datetime.now(UTC)
         await session.commit()
@@ -127,7 +127,7 @@ class SessionsService:
         self,
         session: AsyncSession,
         current_user: AuthenticatedUser,
-        asset_bundle_id: UUID,
+        asset_bundle_id: str,
     ) -> CandidateAsset:
         result = await session.execute(
             select(CandidateAsset).where(
@@ -145,7 +145,7 @@ class SessionsService:
             )
         return asset
 
-    async def _get_parse_payload(self, session: AsyncSession, asset_bundle_id: UUID) -> ParseResultPayload:
+    async def _get_parse_payload(self, session: AsyncSession, asset_bundle_id: str) -> ParseResultPayload:
         result = await session.execute(
             select(ParseResult).where(ParseResult.candidate_asset_id == asset_bundle_id)
         )
@@ -158,7 +158,7 @@ class SessionsService:
         self,
         session: AsyncSession,
         current_user: AuthenticatedUser,
-        session_id: UUID,
+        session_id: str,
     ) -> InterviewSession:
         result = await session.execute(
             select(InterviewSession)

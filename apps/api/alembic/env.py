@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy import pool
-from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from app.infra.config import get_settings
+from app.infra.config import get_settings, resolve_database_url
+from app.infra.db.session import build_async_engine
 from app.models import Base
 
 config = context.config
@@ -16,7 +17,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.database_url)
+mainline_versions_path = Path(__file__).resolve().parent / "versions" / "mainline"
+config.set_main_option("sqlalchemy.url", resolve_database_url(settings.database_url))
+config.set_main_option("version_locations", str(mainline_versions_path))
 
 target_metadata = Base.metadata
 
@@ -30,9 +33,8 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    connectable = build_async_engine(
+        config.get_main_option("sqlalchemy.url"),
         poolclass=pool.NullPool,
     )
 

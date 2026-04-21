@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import uuid
 from datetime import datetime
 
 import uuid_utils as uuid7_utils
-from sqlalchemy import DateTime, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import DateTime, String, func
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
-def generate_uuid7() -> uuid.UUID:
-    return uuid7_utils.uuid7()
+def generate_uuid7() -> str:
+    return str(uuid7_utils.uuid7())
 
 
 class Base(AsyncAttrs, DeclarativeBase):
@@ -19,8 +17,8 @@ class Base(AsyncAttrs, DeclarativeBase):
 
 
 class UUIDv7PrimaryKeyMixin:
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+    id: Mapped[str] = mapped_column(
+        String(36),
         primary_key=True,
         default=generate_uuid7,
     )

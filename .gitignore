@@ -25,6 +25,7 @@ htmlcov/
 .env
 .env.local
 .env.*.local
+.data/
 
 # IDE
 .idea/

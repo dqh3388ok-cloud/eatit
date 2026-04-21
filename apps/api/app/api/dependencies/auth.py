@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from uuid import UUID
-
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,14 +9,14 @@ from app.models.user import User
 from fastapi import Depends
 
 
-MOCK_USER_ID = UUID("01964b52-1a8d-7b10-8d75-f0d4c7f00001")
+MOCK_USER_ID = "01964b52-1a8d-7b10-8d75-f0d4c7f00001"
 MOCK_USER_EMAIL = "mock-user@eatit.local"
 
 
 class AuthenticatedUser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
+    id: str
     email: str
 
 

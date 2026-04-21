@@ -74,7 +74,7 @@ class AssetsService:
         current_user: AuthenticatedUser,
         asset_bundle_id: UUID,
     ) -> ParseRequestResponse:
-        asset = await self._get_owned_asset(session, current_user, asset_bundle_id)
+        asset = await self._get_owned_asset(session, current_user, str(asset_bundle_id))
         payload = self._mock_parse_payload()
 
         result = await session.execute(
@@ -110,7 +110,7 @@ class AssetsService:
         current_user: AuthenticatedUser,
         asset_bundle_id: UUID,
     ) -> ParseResultResponse:
-        asset = await self._get_owned_asset(session, current_user, asset_bundle_id)
+        asset = await self._get_owned_asset(session, current_user, str(asset_bundle_id))
         result = await session.execute(
             select(ParseResult).where(ParseResult.candidate_asset_id == asset.id)
         )
@@ -137,7 +137,7 @@ class AssetsService:
         current_user: AuthenticatedUser,
         asset_bundle_id: UUID,
     ) -> ParseResultPreview | None:
-        asset = await self._get_owned_asset(session, current_user, asset_bundle_id)
+        asset = await self._get_owned_asset(session, current_user, str(asset_bundle_id))
         result = await session.execute(
             select(ParseResult).where(ParseResult.candidate_asset_id == asset.id)
         )
@@ -155,7 +155,7 @@ class AssetsService:
         self,
         session: AsyncSession,
         current_user: AuthenticatedUser,
-        asset_bundle_id: UUID,
+        asset_bundle_id: str,
     ) -> CandidateAsset:
         result = await session.execute(
             select(CandidateAsset).where(
@@ -178,7 +178,7 @@ class AssetsService:
         asset_bundle_id: UUID | None,
     ) -> CandidateAsset:
         if asset_bundle_id is not None:
-            return await self._get_owned_asset(session, current_user, asset_bundle_id)
+            return await self._get_owned_asset(session, current_user, str(asset_bundle_id))
 
         asset = CandidateAsset(user_id=current_user.id, status=CandidateAssetStatus.DRAFT)
         session.add(asset)

@@ -31,7 +31,7 @@ class ReportsService:
         session_id: UUID,
         request: TriggerReportRequest,
     ) -> TriggerReportResponse:
-        interview_session = await self._get_owned_session(session, current_user, session_id)
+        interview_session = await self._get_owned_session(session, current_user, str(session_id))
         now = datetime.now(UTC)
         payload = self._mock_report_payload()
 
@@ -69,7 +69,7 @@ class ReportsService:
         current_user: AuthenticatedUser,
         session_id: UUID,
     ) -> InterviewReportResponse:
-        interview_session = await self._get_owned_session(session, current_user, session_id)
+        interview_session = await self._get_owned_session(session, current_user, str(session_id))
         result = await session.execute(
             select(InterviewReport).where(InterviewReport.interview_session_id == interview_session.id)
         )
@@ -94,7 +94,7 @@ class ReportsService:
         current_user: AuthenticatedUser,
         session_id: UUID,
     ) -> ReportStatusResponse:
-        interview_session = await self._get_owned_session(session, current_user, session_id)
+        interview_session = await self._get_owned_session(session, current_user, str(session_id))
         result = await session.execute(
             select(InterviewReport).where(InterviewReport.interview_session_id == interview_session.id)
         )
@@ -115,7 +115,7 @@ class ReportsService:
         self,
         session: AsyncSession,
         current_user: AuthenticatedUser,
-        session_id: UUID,
+        session_id: str,
     ) -> InterviewSession:
         result = await session.execute(
             select(InterviewSession)
