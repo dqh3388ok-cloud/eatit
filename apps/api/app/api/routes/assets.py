@@ -7,8 +7,10 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import AuthenticatedUser, get_current_user
+from app.api.dependencies.storage import get_storage
 from app.domain.assets.service import AssetsService
 from app.infra.db import get_async_session
+from app.infra.storage import StorageInterface
 from app.schemas.assets import AssetUploadResponse
 from app.schemas.parse import ParseRequestResponse, ParseResultResponse
 
@@ -23,8 +25,9 @@ async def upload_resume(
     file: UploadFile = File(...),
     current_user: AuthenticatedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
+    storage: StorageInterface = Depends(get_storage),
 ) -> AssetUploadResponse:
-    return await service.upload_resume(session, current_user, file, asset_bundle_id)
+    return await service.upload_resume(session, current_user, storage, file, asset_bundle_id)
 
 
 @router.post("/jd", response_model=AssetUploadResponse)
@@ -33,8 +36,9 @@ async def upload_jd(
     file: UploadFile = File(...),
     current_user: AuthenticatedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
+    storage: StorageInterface = Depends(get_storage),
 ) -> AssetUploadResponse:
-    return await service.upload_jd(session, current_user, file, asset_bundle_id)
+    return await service.upload_jd(session, current_user, storage, file, asset_bundle_id)
 
 
 @router.post("/{asset_bundle_id}/parse", response_model=ParseRequestResponse)

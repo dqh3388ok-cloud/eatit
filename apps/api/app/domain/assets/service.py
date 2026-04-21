@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import AuthenticatedUser
+from app.infra.storage import StorageInterface
 from app.models.asset import CandidateAsset, ParseResult
 from app.models.enums import CandidateAssetStatus, ParseResultStatus
 from app.schemas.assets import AssetUploadResponse
@@ -28,13 +29,18 @@ class AssetsService:
         self,
         session: AsyncSession,
         current_user: AuthenticatedUser,
+        storage: StorageInterface,
         file: UploadFile,
         asset_bundle_id: UUID | None,
     ) -> AssetUploadResponse:
         asset = await self._get_or_create_asset(session, current_user, asset_bundle_id)
+        file_ref = await storage.upload(
+            self._build_storage_key("resume", asset.id, file.filename),
+            await file.read(),
+        )
         asset.resume_filename = file.filename
         asset.resume_content_type = file.content_type
-        asset.resume_file_ref = self._mock_storage_key("resume", asset.id, file.filename)
+        asset.resume_file_ref = file_ref
         asset.status = self._derive_asset_status(asset)
         await session.commit()
         await session.refresh(asset)
@@ -50,13 +56,18 @@ class AssetsService:
         self,
         session: AsyncSession,
         current_user: AuthenticatedUser,
+        storage: StorageInterface,
         file: UploadFile,
         asset_bundle_id: UUID | None,
     ) -> AssetUploadResponse:
         asset = await self._get_or_create_asset(session, current_user, asset_bundle_id)
+        file_ref = await storage.upload(
+            self._build_storage_key("jd", asset.id, file.filename),
+            await file.read(),
+        )
         asset.jd_filename = file.filename
         asset.jd_content_type = file.content_type
-        asset.jd_file_ref = self._mock_storage_key("jd", asset.id, file.filename)
+        asset.jd_file_ref = file_ref
         asset.status = self._derive_asset_status(asset)
         await session.commit()
         await session.refresh(asset)
@@ -192,9 +203,9 @@ class AssetsService:
         return CandidateAssetStatus.DRAFT
 
     @staticmethod
-    def _mock_storage_key(kind: str, asset_id: UUID, filename: str | None) -> str:
+    def _build_storage_key(kind: str, asset_id: UUID, filename: str | None) -> str:
         safe_name = Path(filename or f"{kind}.txt").name
-        return f"mock://minio/{kind}/{asset_id}/{safe_name}"
+        return f"assets/{kind}/{asset_id}/{safe_name}"
 
     @staticmethod
     def _mock_parse_payload() -> ParseResultPayload:
