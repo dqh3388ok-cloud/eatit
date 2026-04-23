@@ -19,7 +19,7 @@ Match the section prefix to the file.
 
 ## Completed
 
-- [x] P5.1 Real app icon — SKIPPED (no assets/brand/icon.png supplied; per spec no-op) (<commit>, 2026-04-24)
+- [x] P5.1 Real app icon — SKIPPED (no assets/brand/icon.png supplied; per spec no-op) (a8ed186, 2026-04-24)
 - [x] P4.X Phase 4 test sweep + E2E (f016b1a, 2026-04-24)
 - [x] P4.6 Settings voice toggle + /api/v1/asr/health (ad50efb, 2026-04-24)
 - [x] P4.5 InterviewPage voice UX — hold-to-talk + live caption (9858c18, 2026-04-24)
