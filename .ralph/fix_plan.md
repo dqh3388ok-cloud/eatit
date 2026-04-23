@@ -8,7 +8,6 @@ section prefix.
 
 ## High Priority (work top-down)
 
-- [ ] P3.5B.1 ObserverAgent — live coaching agent (≤ 60 char observations) — see phase3.5-sections#P3.5B.1
 - [ ] P3.5B.2 Orchestrator + WS observer wiring — server.coach.observation event — see phase3.5-sections#P3.5B.2
 - [ ] P3.5A.3 MetaReport frontend — list + detail page + history CTA — see phase3.5-sections#P3.5A.3
 - [ ] P3.5B.3 Interview observer sidebar — panel + settings toggle — see phase3.5-sections#P3.5B.3
@@ -16,6 +15,7 @@ section prefix.
 
 ## Completed
 
+- [x] P3.5B.1 ObserverAgent — live coaching agent (≤ 60 char observations) (PENDING, 2026-04-24)
 - [x] P3.5A.2 MetaReport REST + storage — async pipeline + polling API (42615fa, 2026-04-24)
 - [x] P3.5A.1 MetaReportAgent — cross-session trend agent (10cf62a, 2026-04-24)
 - [x] P3.12 Test sweep + end-to-end smoke (85e0ff7, 2026-04-23)

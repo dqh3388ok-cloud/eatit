@@ -60,6 +60,13 @@ _USER_VARS: dict[str, dict] = {
         "session_count": 2,
         "sessions_json": "[]",
     },
+    "observer": {
+        "turn_index": 2,
+        "question": "请说一个你主导的项目",
+        "answer": "我主导过一个文档摘要 agent 的上线项目",
+        "remaining_minutes": 5,
+        "long_term_summary": None,
+    },
 }
 
 

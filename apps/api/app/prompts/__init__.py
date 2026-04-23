@@ -25,6 +25,7 @@ AGENT_NAMES: tuple[str, ...] = (
     "compression",
     "report",
     "meta_report",
+    "observer",
 )
 
 PromptRole = Literal["system", "user"]
