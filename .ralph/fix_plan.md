@@ -22,7 +22,7 @@ Match the section prefix to the file.
 
 ## Completed
 
-- [x] P4.5 InterviewPage voice UX — hold-to-talk + live caption (<commit>, 2026-04-24)
+- [x] P4.5 InterviewPage voice UX — hold-to-talk + live caption (9858c18, 2026-04-24)
 - [x] P4.4 Desktop mic permission + capture — MediaRecorder + Info.plist (8a15fec, 2026-04-24)
 - [x] P4.3 Runtime audio pipeline — streaming audio → ASR → turn answer (186ce31, 2026-04-24)
 - [x] P4.2 WS audio protocol — binary frames + transcript events (dee8c14, 2026-04-24)
