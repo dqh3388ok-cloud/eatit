@@ -162,4 +162,17 @@
     background: var(--brand);
     border-radius: 2px;
   }
+
+  .spin {
+    animation: eatit-spin 0.9s linear infinite;
+  }
+}
+
+@keyframes eatit-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
