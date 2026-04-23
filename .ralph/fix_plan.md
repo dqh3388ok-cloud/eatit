@@ -6,8 +6,6 @@ live in `.ralph/specs/phase3-sections.md` under the matching anchor.
 
 ## High Priority (work top-down)
 
-- [ ] P3.9 SettingsPage — BYOK form + test connection — see specs#P3.9
-- [ ] P3.8 OnboardingPage — 4-step first-run wizard — see specs#P3.8
 - [ ] P3.3 Six Agents — Parse / Framework / Interviewer / Reference / Compression / Report with Instructor — see specs#P3.3
 - [ ] P3.4 LangGraph orchestrator — turn_graph + TaskGroup + on_session_end — see specs#P3.4
 - [ ] P3.5 REST/WS real — replace Phase 2 mocks + client.session.init first-frame — see specs#P3.5
@@ -17,6 +15,8 @@ live in `.ralph/specs/phase3-sections.md` under the matching anchor.
 
 ## Completed
 
+- [x] P3.8 OnboardingPage — 4-step first-run wizard + app_settings REST (50a1653, 2026-04-23)
+- [x] P3.9 SettingsPage — BYOK form + test connection (5c73c88, 2026-04-23)
 - [x] P3.1 LLM infra — BYOK gateway + test endpoint + header middleware (8082684, 2026-04-23)
 - [x] P3.2 Prompts — six agent Jinja2 templates with guardrails (8bed096, 2026-04-23)
 - [x] P3.6 app_settings table — local UI state with secret blocklist (35bea78, 2026-04-23)
