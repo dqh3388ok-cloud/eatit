@@ -55,5 +55,7 @@ apps/desktop/dist/
 .ralph/.circuit_breaker_state
 .ralph/.circuit_breaker_history
 .ralph/status.json
+.ralph/.loop_start_sha
+.ralph/progress.json
 .ralph/logs/
 .ralph/docs/generated/
