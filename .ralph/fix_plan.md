@@ -13,7 +13,7 @@ Match the section prefix to the file.
 
 ## Completed
 
-- [x] P5.X Phase 5 test sweep + tauri build dry run (<commit>, 2026-04-24)
+- [x] P5.X Phase 5 test sweep + tauri build dry run (3d88ecc, 2026-04-24)
 - [x] P5.6 Error boundaries + WS reconnect + friendly toasts (a20588b, 2026-04-24)
 - [x] P5.5 Sentry scaffold with secret redaction (f3e1742, 2026-04-24)
 - [x] P5.4 Print-to-PDF on report page (1068060, 2026-04-24)
