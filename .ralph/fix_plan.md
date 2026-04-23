@@ -12,7 +12,7 @@ section prefix.
 
 ## Completed
 
-- [x] P3.5B.3 Interview observer sidebar — panel + settings toggle (PENDING, 2026-04-24)
+- [x] P3.5B.3 Interview observer sidebar — panel + settings toggle (5bd383b, 2026-04-24)
 - [x] P3.5A.3 MetaReport frontend — list + detail page + history CTA (70061b5, 2026-04-24)
 - [x] P3.5B.2 Orchestrator + WS observer wiring — server.coach.observation event (adc6da3, 2026-04-24)
 - [x] P3.5B.1 ObserverAgent — live coaching agent (≤ 60 char observations) (f81d72b, 2026-04-24)
