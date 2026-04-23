@@ -17,7 +17,7 @@ section prefix.
 
 ## Completed
 
-- [x] P3.5A.1 MetaReportAgent — cross-session trend agent (PENDING, 2026-04-24)
+- [x] P3.5A.1 MetaReportAgent — cross-session trend agent (10cf62a, 2026-04-24)
 - [x] P3.12 Test sweep + end-to-end smoke (85e0ff7, 2026-04-23)
 - [x] P3.10c InterviewPage + HistoryPage + ReportPage — XState + WS + report fields (a090aa7, 2026-04-23)
 - [x] P3.10b UploadPage + ConfigPage — real business bodies (fb0eff8, 2026-04-23)
