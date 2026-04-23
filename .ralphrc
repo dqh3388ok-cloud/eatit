@@ -1,0 +1,31 @@
+# .ralphrc — Ralph project configuration for Eatit Phase 3
+
+PROJECT_NAME="eatit"
+PROJECT_TYPE="typescript"    # monorepo; desktop side is TS, backend is Python
+
+# Loop settings
+MAX_CALLS_PER_HOUR=100
+CLAUDE_TIMEOUT_MINUTES=20
+CLAUDE_OUTPUT_FORMAT="json"
+
+# Tool permissions — allow what the sections need, keep destructive git
+# subcommands blocked.
+ALLOWED_TOOLS="Write,Read,Edit,Grep,Glob,Bash(git add *),Bash(git commit *),Bash(git diff *),Bash(git log *),Bash(git status),Bash(git status *),Bash(git checkout *),Bash(git branch *),Bash(git stash *),Bash(git show *),Bash(git rev-parse *),Bash(uv *),Bash(corepack *),Bash(pnpm *),Bash(cargo *),Bash(rustc *),Bash(curl *),Bash(mkdir *),Bash(ls *),Bash(cat *),Bash(echo *),Bash(python3 *),Bash(rg *),Bash(find *),Bash(source *),Bash(unset *),Bash(cd *),Bash(test *)"
+
+# Session
+SESSION_CONTINUITY=true
+SESSION_EXPIRY_HOURS=24
+
+# Task sources — fully local; the backlog lives in .ralph/fix_plan.md
+TASK_SOURCES="local"
+
+# Circuit breaker
+CB_NO_PROGRESS_THRESHOLD=3
+CB_SAME_ERROR_THRESHOLD=5
+CB_OUTPUT_DECLINE_THRESHOLD=70
+CB_COOLDOWN_MINUTES=30
+CB_AUTO_RESET=false
+
+# Misc
+CLAUDE_AUTO_UPDATE=false   # we don't want the loop to silently update CLI mid-run
+RALPH_VERBOSE=false

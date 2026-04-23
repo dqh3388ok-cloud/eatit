@@ -42,3 +42,18 @@ htmlcov/
 build/
 apps/desktop/dist/
 .turbo/
+
+# Ralph runtime state (keep PROMPT.md / fix_plan.md / AGENT.md / specs / .ralphrc tracked)
+.ralph/.call_count
+.ralph/.token_count
+.ralph/.last_reset
+.ralph/.exit_signals
+.ralph/.ralph_session
+.ralph/.ralph_session_history
+.ralph/.claude_session_id
+.ralph/.response_analysis
+.ralph/.circuit_breaker_state
+.ralph/.circuit_breaker_history
+.ralph/status.json
+.ralph/logs/
+.ralph/docs/generated/
