@@ -1,37 +1,165 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 222.2 47.4% 11.2%;
+    /* ===== Design tokens (Eatit design system) =====
+       Mirrored from ui-reference/styles.css. Kept as plain CSS custom
+       properties so components can use them directly via var(--name). */
+    --bg: #fafaf7;
+    --bg-elev: #ffffff;
+    --bg-sunken: #f2f1eb;
+    --bg-warm: #f6f5ef;
+
+    --ink-900: #0f1310;
+    --ink-700: #2c322e;
+    --ink-500: #6b7169;
+    --ink-400: #8d9189;
+    --ink-300: #b5b8b0;
+    --ink-200: #d8d9d1;
+
+    --line: #e8e7e0;
+    --line-strong: #d8d9d1;
+
+    --brand: #1f6b3a;
+    --brand-ink: #15502b;
+    --brand-soft: #e6efe8;
+    --brand-softer: #f1f6f2;
+
+    --warn: #b8651a;
+    --warn-soft: #f6eadc;
+    --warn-softer: #fbf4ea;
+
+    --info: #2c5e8a;
+    --info-soft: #e7eef5;
+
+    --f-sans: "Inter", -apple-system, "Helvetica Neue", sans-serif;
+    --f-serif: "Instrument Serif", "Iowan Old Style", serif;
+    --f-mono: "JetBrains Mono", ui-monospace, monospace;
+
+    --r-sm: 8px;
+    --r-md: 12px;
+    --r-lg: 16px;
+    --r-xl: 20px;
+    --r-pill: 999px;
+
+    --shadow-xs: 0 1px 0 rgba(15, 19, 16, 0.04);
+    --shadow-sm: 0 1px 2px rgba(15, 19, 16, 0.04), 0 0 0 0.5px rgba(15, 19, 16, 0.06);
+    --shadow-md: 0 8px 24px -12px rgba(15, 19, 16, 0.1), 0 2px 4px rgba(15, 19, 16, 0.04);
+    --shadow-lg: 0 24px 48px -20px rgba(15, 19, 16, 0.14), 0 4px 8px rgba(15, 19, 16, 0.04);
+
+    /* ===== shadcn/ui bridge ===== */
+    /* Expose the design palette under the HSL-triplet variable names that
+       existing shadcn components read, so Button/Card/Dialog render in the
+       new palette without requiring a component rewrite. */
+    --background: 60 20% 97%;
+    --foreground: 135 12% 7%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 47.4% 11.2%;
+    --card-foreground: 135 12% 7%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 47.4% 11.2%;
-    --primary: 210 56% 45%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 72.2% 50.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 210 56% 45%;
+    --popover-foreground: 135 12% 7%;
+    --primary: 135 12% 7%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 50 20% 92%;
+    --secondary-foreground: 135 12% 7%;
+    --muted: 50 20% 92%;
+    --muted-foreground: 100 4% 43%;
+    --accent: 50 20% 92%;
+    --accent-foreground: 135 12% 7%;
+    --destructive: 24 75% 41%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 50 13% 90%;
+    --input: 50 13% 90%;
+    --ring: 140 55% 27%;
     --radius: 0.75rem;
   }
 
   * {
     @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
   }
 
   body {
-    @apply bg-background text-foreground min-h-screen font-sans antialiased;
-    background-image: radial-gradient(circle at top, rgba(91, 155, 213, 0.12), transparent 40%);
+    margin: 0;
+    font-family: var(--f-sans);
+    font-feature-settings: "ss01", "cv11";
+    color: var(--ink-900);
+    background: var(--bg);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button {
+    font-family: inherit;
+  }
+}
+
+@layer components {
+  /* ===== Typography utilities from design system ===== */
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    color: var(--ink-500);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .h-serif {
+    font-family: var(--f-serif);
+    letter-spacing: -0.02em;
+  }
+  .mono {
+    font-family: var(--f-mono);
+  }
+
+  /* ===== Reusable pattern components ===== */
+  .ds-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-xs);
+  }
+
+  .ds-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    font-size: 11.5px;
+    font-weight: 500;
+    border-radius: var(--r-pill);
+    background: var(--bg-sunken);
+    color: var(--ink-700);
+    border: 1px solid transparent;
+  }
+  .ds-tag-green {
+    background: var(--brand-soft);
+    color: var(--brand-ink);
+  }
+  .ds-tag-line {
+    background: transparent;
+    border-color: var(--line);
+  }
+
+  .ds-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+    overflow: hidden;
+  }
+  .ds-bar > i {
+    display: block;
+    height: 100%;
+    background: var(--brand);
+    border-radius: 2px;
   }
 }

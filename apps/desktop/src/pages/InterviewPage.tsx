@@ -1,14 +1,11 @@
-import { useParams } from "react-router-dom";
-import { PageShell } from "@/pages/page-shell";
+import { PagePlaceholder } from "@/pages/_placeholder";
 
 export function InterviewPage(): JSX.Element {
-  const { sessionId = "unknown" } = useParams<{ sessionId: string }>();
-
   return (
-    <PageShell
-      title="Realtime Interview"
-      description={`Placeholder route for active session ${sessionId}.`}
-      routePath={`/interview/${sessionId}`}
+    <PagePlaceholder
+      eyebrow="实时面试"
+      title="正在建设中"
+      description="这里会接入 XState 驱动的面试状态机 + WebSocket 实时事件流。"
     />
   );
 }

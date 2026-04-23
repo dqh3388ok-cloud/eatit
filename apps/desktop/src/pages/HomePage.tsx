@@ -1,59 +1,99 @@
 import { Link } from "react-router-dom";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-const links = [
-  { label: "Upload Page", to: "/upload" },
-  { label: "Config Page", to: "/config" },
-  { label: "Interview Page", to: "/interview/demo-session" },
-  { label: "History Page", to: "/history" },
-  { label: "Report Page", to: "/report/demo-session" },
-];
 
 export function HomePage(): JSX.Element {
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-6 py-12">
-      <Card className="w-full border-white/70 bg-white/90 shadow-xl">
-        <CardHeader className="space-y-3">
-          <CardDescription>Stage one hello world scaffold</CardDescription>
-          <CardTitle className="text-3xl">Eatit Desktop Debug Home</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <p className="max-w-3xl text-sm text-slate-600">
-            This screen exists only for development. Use the buttons below to jump to the five
-            required routes while the real product flow is still under construction.
-          </p>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {links.map((link) => (
-              <Link key={link.to} to={link.to}>
-                <Button className="w-full justify-start">{link.label}</Button>
-              </Link>
-            ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div>
+        <div className="eyebrow">01 · 首页</div>
+        <h1
+          className="h-serif"
+          style={{
+            fontSize: 42,
+            lineHeight: 1.1,
+            fontWeight: 400,
+            margin: "10px 0 6px",
+            color: "var(--ink-900)",
+          }}
+        >
+          开始一场 AI 模拟面试。
+        </h1>
+        <p
+          style={{
+            fontSize: 14,
+            color: "var(--ink-500)",
+            maxWidth: 620,
+            lineHeight: 1.6,
+          }}
+        >
+          上传你的简历和 JD,选择岗位级别与面试风格,Eatit 会用 6
+          个专用 agent 编排一场结构化的中文模拟面试,并在结束后给出带证据的评估报告。
+        </p>
+      </div>
+
+      <div
+        className="ds-card"
+        style={{
+          padding: "22px 24px",
+          display: "flex",
+          gap: 24,
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 260 }}>
+          <div
+            style={{
+              fontSize: 14.5,
+              fontWeight: 600,
+              marginBottom: 4,
+              color: "var(--ink-900)",
+            }}
+          >
+            最近一次面试
           </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button variant="outline">What is in this scaffold?</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Stage one scope</DialogTitle>
-                <DialogDescription>
-                  Desktop routing, shared providers, Tailwind styling, and Tauri shell are wired in.
-                  Business logic and backend integration come next.
-                </DialogDescription>
-              </DialogHeader>
-            </DialogContent>
-          </Dialog>
-        </CardContent>
-      </Card>
+          <div style={{ fontSize: 13, color: "var(--ink-500)" }}>
+            还没有面试记录。完成一次面试后这里会展示你的最近 session。
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link
+            to="/upload"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "11px 18px",
+              borderRadius: "var(--r-md)",
+              fontSize: 13.5,
+              fontWeight: 500,
+              background: "var(--brand)",
+              color: "white",
+              textDecoration: "none",
+            }}
+          >
+            开始新的面试
+          </Link>
+          <Link
+            to="/history"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
+              padding: "11px 18px",
+              borderRadius: "var(--r-md)",
+              fontSize: 13.5,
+              fontWeight: 500,
+              background: "var(--bg-elev)",
+              border: "1px solid var(--line)",
+              color: "var(--ink-900)",
+              textDecoration: "none",
+            }}
+          >
+            查看历史
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

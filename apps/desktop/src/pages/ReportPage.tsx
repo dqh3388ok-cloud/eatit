@@ -1,14 +1,11 @@
-import { useParams } from "react-router-dom";
-import { PageShell } from "@/pages/page-shell";
+import { PagePlaceholder } from "@/pages/_placeholder";
 
 export function ReportPage(): JSX.Element {
-  const { sessionId = "unknown" } = useParams<{ sessionId: string }>();
-
   return (
-    <PageShell
-      title="Interview Report"
-      description={`Placeholder route for report view ${sessionId}.`}
-      routePath={`/report/${sessionId}`}
+    <PagePlaceholder
+      eyebrow="05 · 我的数据"
+      title="评估报告"
+      description="包含通过概率估计、证据绑定的维度评价和针对下一场面试的具体行动建议。"
     />
   );
 }
