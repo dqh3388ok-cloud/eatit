@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile, status
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +14,7 @@ from app.agents.parse.schemas import ParseAgentInput
 from app.agents.parse.service import ParseAgentService
 from app.api.dependencies.auth import AuthenticatedUser
 from app.infra.llm import LLMGateway
+from app.infra.llm.errors import LLMError
 from app.infra.storage import StorageInterface
 from app.models.asset import CandidateAsset, ParseResult
 from app.models.enums import CandidateAssetStatus, ParseResultStatus
@@ -96,10 +100,16 @@ class AssetsService:
         resume_text = await self._download_as_text(storage, asset.resume_file_ref)
         jd_text = await self._download_as_text(storage, asset.jd_file_ref)
 
-        agent_output = await ParseAgentService().run(
-            ParseAgentInput(resume_text=resume_text, jd_text=jd_text),
-            gateway,
-        )
+        try:
+            agent_output = await ParseAgentService().run(
+                ParseAgentInput(resume_text=resume_text, jd_text=jd_text),
+                gateway,
+            )
+        except LLMError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"LLM 调用失败:{exc}",
+            ) from exc
         payload = ParseResultPayload.model_validate(agent_output.model_dump())
 
         result = await session.execute(
@@ -132,9 +142,26 @@ class AssetsService:
     @staticmethod
     async def _download_as_text(storage: StorageInterface, file_ref: str) -> str:
         data = await storage.download(file_ref)
-        # Best-effort UTF-8 decode. Phase 3 is text-first; PDF/doc
-        # extraction is a follow-up concern that belongs in a parser
-        # service, not here.
+        # Sniff content: PDF has a %PDF- magic prefix; everything else we
+        # treat as utf-8 text with replacement decoding. docx/doc extraction
+        # is a later concern (users can export to PDF or paste plain text).
+        if data[:5] == b"%PDF-":
+            try:
+                reader = PdfReader(BytesIO(data))
+                parts: list[str] = []
+                for page in reader.pages:
+                    text = page.extract_text() or ""
+                    if text:
+                        parts.append(text)
+                # Return on success even when extraction is empty (blank /
+                # scan-only PDF). Falling through to utf-8 decode here
+                # would leak raw PDF structure to the LLM — precisely the
+                # bug that blew the first end-to-end walkthrough.
+                return "\n\n".join(parts).strip()
+            except PdfReadError:
+                # Only for malformed PDFs: best-effort utf-8 decode so the
+                # caller sees *something* rather than silence.
+                pass
         return data.decode("utf-8", errors="replace")
 
     async def get_parse_result(

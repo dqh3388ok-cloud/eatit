@@ -28,6 +28,7 @@ dependencies = [
   "python-multipart>=0.0.9,<1.0.0",
   "uuid-utils>=0.14.1,<1.0.0",
   "tenacity>=9.1.4",
+  "pypdf>=6.10.2",
 ]
 
 [dependency-groups]
