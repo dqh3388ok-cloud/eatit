@@ -34,3 +34,9 @@ apiClient.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+// Intentionally NO response / error interceptor that forwards the axios
+// `config` (which carries `X-LLM-Config` on every call) to Sentry or
+// logs. Our Sentry `beforeSend` also redacts the header, but belt-and-
+// braces: we never hand the raw request metadata to breadcrumb tooling
+// in the first place. See src/lib/sentry.ts for the redaction contract.

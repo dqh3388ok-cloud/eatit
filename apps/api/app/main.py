@@ -7,6 +7,7 @@ from app.api.middleware.llm_config import LLMConfigMiddleware
 from app.api.router import api_router
 from app.infra.config import get_settings
 from app.infra.logging import configure_logging, get_logger
+from app.infra.observability import init_sentry
 from app.ws import router as ws_router
 
 # Origins that may talk to the local backend during development.
@@ -27,6 +28,7 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     settings = get_settings()
+    init_sentry(settings.sentry_dsn, settings.app_env)
     logger.info(
         "app.startup",
         app_name=settings.app_name,

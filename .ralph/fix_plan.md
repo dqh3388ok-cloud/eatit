@@ -11,12 +11,12 @@ Match the section prefix to the file.
 
 ## High Priority (work top-down)
 
-- [ ] P5.5 Sentry scaffold with secret redaction — see phase5-sections#P5.5
 - [ ] P5.6 Error boundaries + WS reconnect + friendly toasts — see phase5-sections#P5.6
 - [ ] P5.X Phase 5 test sweep + tauri build dry run — see phase5-sections#P5.X
 
 ## Completed
 
+- [x] P5.5 Sentry scaffold with secret redaction (<commit>, 2026-04-24)
 - [x] P5.4 Print-to-PDF on report page (1068060, 2026-04-24)
 - [x] P5.2 Unsigned DMG build config + script (93439c8, 2026-04-24)
 - [x] P5.1 Real app icon — SKIPPED (no assets/brand/icon.png supplied; per spec no-op) (a8ed186, 2026-04-24)
