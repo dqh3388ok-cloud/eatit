@@ -11,7 +11,6 @@ Match the section prefix to the file.
 
 ## High Priority (work top-down)
 
-- [ ] P5.1 Real app icon (conditional; skip if no source PNG) — see phase5-sections#P5.1
 - [ ] P5.2 Unsigned DMG build config + script — see phase5-sections#P5.2
 - [ ] P5.4 Print-to-PDF on report page — see phase5-sections#P5.4
 - [ ] P5.5 Sentry scaffold with secret redaction — see phase5-sections#P5.5
@@ -20,6 +19,7 @@ Match the section prefix to the file.
 
 ## Completed
 
+- [x] P5.1 Real app icon — SKIPPED (no assets/brand/icon.png supplied; per spec no-op) (<commit>, 2026-04-24)
 - [x] P4.X Phase 4 test sweep + E2E (f016b1a, 2026-04-24)
 - [x] P4.6 Settings voice toggle + /api/v1/asr/health (ad50efb, 2026-04-24)
 - [x] P4.5 InterviewPage voice UX — hold-to-talk + live caption (9858c18, 2026-04-24)
