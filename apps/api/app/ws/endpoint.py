@@ -139,6 +139,7 @@ async def interview_socket(websocket: WebSocket, session_id: UUID) -> None:
 
         # --- Main loop ---
         current_audio_turn: int | None = None
+        audio_turns: set[int] = set()
 
         while True:
             message = await websocket.receive()
@@ -180,10 +181,18 @@ async def interview_socket(websocket: WebSocket, session_id: UUID) -> None:
                 continue
 
             if isinstance(parsed, ClientTurnEndEvent):
+                answer = parsed.answer
+                if parsed.turn_index in audio_turns:
+                    # Voice mode: client-supplied `answer` may be empty or
+                    # stale. The ASR final transcript is the authoritative
+                    # answer text for this turn.
+                    voice_answer = runtime.get_audio_answer(parsed.turn_index)
+                    if voice_answer is not None:
+                        answer = voice_answer
                 await runtime.run_turn(
                     turn_index=parsed.turn_index,
                     question=parsed.question,
-                    answer=parsed.answer,
+                    answer=answer,
                     framework_json=framework_json,
                 )
                 await _drain_queue(websocket, runtime)
@@ -209,6 +218,7 @@ async def interview_socket(websocket: WebSocket, session_id: UUID) -> None:
                     )
                     continue
                 current_audio_turn = parsed.turn_index
+                audio_turns.add(parsed.turn_index)
                 await _drain_queue(websocket, runtime)
                 continue
 

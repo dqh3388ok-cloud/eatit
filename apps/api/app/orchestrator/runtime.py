@@ -72,6 +72,7 @@ class SessionRuntime:
         self._asr_backend: ASRBackend | None = None
         self._current_audio_turn: int | None = None
         self._last_final_by_turn: dict[int, str] = {}
+        self._pending_final_events: dict[int, asyncio.Event] = {}
         self._closed = False
 
     async def __aenter__(self) -> "SessionRuntime":
@@ -197,6 +198,8 @@ class SessionRuntime:
 
         backend = backend_factory()
         loop = asyncio.get_running_loop()
+        final_event = asyncio.Event()
+        self._pending_final_events[turn_index] = final_event
 
         def _on_partial(text: str) -> None:
             loop.call_soon_threadsafe(
@@ -205,11 +208,20 @@ class SessionRuntime:
             )
 
         def _on_final(text: str) -> None:
-            self._last_final_by_turn[turn_index] = text
-            loop.call_soon_threadsafe(
-                self._event_queue.put_nowait,
-                TranscriptFinalEvent(turn_index=turn_index, text=text),
-            )
+            # Marshal state mutation + event-queue write onto the loop thread
+            # so the Azure SDK callback (which fires on a worker thread) is
+            # safe. For the sync mock used in tests this is a no-op detour
+            # but still correct.
+            def _dispatch() -> None:
+                self._last_final_by_turn[turn_index] = text
+                self._event_queue.put_nowait(
+                    TranscriptFinalEvent(turn_index=turn_index, text=text)
+                )
+                pending = self._pending_final_events.get(turn_index)
+                if pending is not None:
+                    pending.set()
+
+            loop.call_soon_threadsafe(_dispatch)
 
         backend.on_partial(_on_partial)
         backend.on_final(_on_final)
@@ -223,25 +235,39 @@ class SessionRuntime:
             raise AudioNotStartedError("push_audio requires an active ASR stream")
         await self._asr_backend.push_audio(chunk)
 
-    async def stop_audio_turn(self) -> str:
+    async def stop_audio_turn(self, *, trailing_final_timeout: float = 2.0) -> str:
         """Close the current ASR stream and return the final transcript text
-        (empty string if no final landed). Always safe to call."""
+        (empty string if no final landed within `trailing_final_timeout`).
+        Always safe to call."""
         backend = self._asr_backend
         turn_index = self._current_audio_turn
         self._asr_backend = None
         self._current_audio_turn = None
         if backend is None:
             return ""
+
+        pending = (
+            self._pending_final_events.get(turn_index) if turn_index is not None else None
+        )
+
         try:
             await backend.stop_stream()
         finally:
-            # Yield once so any `call_soon_threadsafe`-scheduled final event
-            # from the SDK's post-stop trailing Recognized can land on the
-            # queue before the caller drains.
+            # Yield once so any `call_soon_threadsafe`-scheduled callback
+            # from a synchronously-firing mock backend lands before we
+            # check the state below.
             await asyncio.sleep(0)
-        if turn_index is None:
-            return ""
-        return self._last_final_by_turn.get(turn_index, "")
+
+        if pending is not None and not pending.is_set():
+            try:
+                await asyncio.wait_for(pending.wait(), timeout=trailing_final_timeout)
+            except asyncio.TimeoutError:
+                pass
+
+        if turn_index is not None:
+            self._pending_final_events.pop(turn_index, None)
+            return self._last_final_by_turn.get(turn_index, "")
+        return ""
 
     def get_audio_answer(self, turn_index: int) -> str | None:
         return self._last_final_by_turn.get(turn_index)
@@ -370,6 +396,7 @@ class SessionRuntime:
         self._asr_backend = None
         self._current_audio_turn = None
         self._last_final_by_turn.clear()
+        self._pending_final_events.clear()
 
         while not self._event_queue.empty():
             try:

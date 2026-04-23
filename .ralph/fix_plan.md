@@ -11,7 +11,6 @@ Match the section prefix to the file.
 
 ## High Priority (work top-down)
 
-- [ ] P4.3 Runtime audio pipeline — streaming audio → ASR → turn answer — see phase4-sections#P4.3
 - [ ] P4.4 Desktop mic permission + capture — MediaRecorder + Info.plist — see phase4-sections#P4.4
 - [ ] P4.5 InterviewPage voice UX — hold-to-talk + live caption — see phase4-sections#P4.5
 - [ ] P4.6 Settings voice toggle + /api/v1/asr/health — see phase4-sections#P4.6
@@ -25,6 +24,7 @@ Match the section prefix to the file.
 
 ## Completed
 
+- [x] P4.3 Runtime audio pipeline — streaming audio → ASR → turn answer (<commit>, 2026-04-24)
 - [x] P4.2 WS audio protocol — binary frames + transcript events (dee8c14, 2026-04-24)
 - [x] P4.1 ASR infra — Azure Speech SDK + abstraction + mock backend (0c0e0b1, 2026-04-24)
 - [x] P3.5X Test sweep + E2E — meta + observer smoke (a6782c8, 2026-04-24)
