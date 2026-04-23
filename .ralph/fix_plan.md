@@ -20,7 +20,7 @@ Match the section prefix to the file.
 
 ## Completed
 
-- [x] P4.X Phase 4 test sweep + E2E (<commit>, 2026-04-24)
+- [x] P4.X Phase 4 test sweep + E2E (f016b1a, 2026-04-24)
 - [x] P4.6 Settings voice toggle + /api/v1/asr/health (ad50efb, 2026-04-24)
 - [x] P4.5 InterviewPage voice UX — hold-to-talk + live caption (9858c18, 2026-04-24)
 - [x] P4.4 Desktop mic permission + capture — MediaRecorder + Info.plist (8a15fec, 2026-04-24)
