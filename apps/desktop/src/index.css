@@ -166,6 +166,22 @@
   .spin {
     animation: eatit-spin 0.9s linear infinite;
   }
+
+  /* Report-generating skeleton block. 1.4s shimmer sweep via the design
+     tokens — used by ReportPage while the background task runs. */
+  .shimmer {
+    display: block;
+    border-radius: var(--r-sm);
+    background:
+      linear-gradient(
+        90deg,
+        var(--bg-sunken) 0%,
+        var(--line) 50%,
+        var(--bg-sunken) 100%
+      );
+    background-size: 200% 100%;
+    animation: eatit-shimmer 1.4s ease-in-out infinite;
+  }
 }
 
 @keyframes eatit-spin {

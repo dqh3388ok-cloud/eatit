@@ -6,11 +6,11 @@ live in `.ralph/specs/phase3-sections.md` under the matching anchor.
 
 ## High Priority (work top-down)
 
-- [ ] P3.10c InterviewPage + HistoryPage + ReportPage — XState + WS + report fields — see specs#P3.10c
 - [ ] P3.12 Test sweep + end-to-end smoke — see specs#P3.12
 
 ## Completed
 
+- [x] P3.10c InterviewPage + HistoryPage + ReportPage — XState + WS + report fields (a090aa7, 2026-04-23)
 - [x] P3.10b UploadPage + ConfigPage — real business bodies (fb0eff8, 2026-04-23)
 - [x] P3.5 REST/WS real — agents wired + WS first-frame protocol (de997ea, 2026-04-23)
 - [x] P3.4 LangGraph orchestrator — turn_graph + SessionRuntime TaskGroup cleanup (7307059, 2026-04-23)

@@ -235,12 +235,23 @@ export type RoundReview = {
   assessment: NormalizedUserAssessment;
 };
 
+export type ReportVerdict = "strong" | "solid" | "mixed" | "weak";
+
+export type ReportReason = {
+  aspect: string;
+  verdict: ReportVerdict;
+  evidence_turn_index: number;
+  quote: string;
+};
+
 export type InterviewReportPayload = {
   overall_summary: string;
   round_reviews: RoundReview[];
   strengths: string[];
   improvements: string[];
   next_actions: string[];
+  pass_probability: number;
+  reasons: ReportReason[];
 };
 
 export type TriggerReportRequest = {
@@ -272,8 +283,27 @@ export type ClientAudioChunkEvent = {
   content_type?: string | null;
 };
 
+export type LLMConfigPayload = {
+  provider: string;
+  api_key: string;
+  model: string;
+  base_url?: string | null;
+};
+
+export type ClientSessionInitEvent = {
+  event: "client.session.init";
+  config: LLMConfigPayload;
+};
+
+export type ClientTurnStartEvent = {
+  event: "client.turn.start";
+};
+
 export type ClientTurnEndEvent = {
   event: "client.turn.end";
+  turn_index: number;
+  question: string;
+  answer: string;
 };
 
 export type ClientSessionPauseEvent = {
@@ -289,6 +319,8 @@ export type ClientSessionEndEvent = {
 };
 
 export type ClientTextEvent =
+  | ClientSessionInitEvent
+  | ClientTurnStartEvent
   | ClientTurnEndEvent
   | ClientSessionPauseEvent
   | ClientSessionResumeEvent
@@ -312,22 +344,44 @@ export type ServerTranscriptFinalizedEvent = {
 
 export type ServerTurnAssessedEvent = {
   event: "server.turn.assessed";
-  payload: NormalizedUserAssessment;
+  payload: {
+    turn_index: number;
+    summary: string;
+    strengths: string[];
+    weaknesses: string[];
+  };
 };
 
 export type ServerTurnCompressedEvent = {
   event: "server.turn.compressed";
-  payload: CompressedTurnSummary;
+  payload: {
+    summary: string;
+    preserved_keywords: string[];
+    open_threads: string[];
+  };
 };
 
 export type ServerQuestionGeneratedEvent = {
   event: "server.question.generated";
-  payload: NormalizedQuestion;
+  payload: {
+    turn_index: number;
+    question: string;
+    intent: string;
+    expected_depth: "surface" | "tactical" | "strategic";
+    followup_hint: string | null;
+    should_end: boolean;
+  };
 };
 
 export type ServerReferenceReadyEvent = {
   event: "server.reference.ready";
-  payload: ReferenceAnswer;
+  payload: {
+    turn_index: number;
+    answer_outline: string[];
+    ideal_answer: string;
+    key_evaluation_points: string[];
+    common_pitfalls: string[];
+  };
 };
 
 export type ServerSessionEndedEvent = {
