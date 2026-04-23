@@ -7,9 +7,11 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import AuthenticatedUser, get_current_user
+from app.api.dependencies.llm import get_llm_gateway
 from app.api.dependencies.storage import get_storage
 from app.domain.assets.service import AssetsService
 from app.infra.db import get_async_session
+from app.infra.llm import LLMGateway
 from app.infra.storage import StorageInterface
 from app.schemas.assets import AssetUploadResponse
 from app.schemas.parse import ParseRequestResponse, ParseResultResponse
@@ -46,8 +48,10 @@ async def trigger_parse(
     asset_bundle_id: UUID,
     current_user: AuthenticatedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
+    gateway: LLMGateway = Depends(get_llm_gateway),
+    storage: StorageInterface = Depends(get_storage),
 ) -> ParseRequestResponse:
-    return await service.trigger_parse(session, current_user, asset_bundle_id)
+    return await service.trigger_parse(session, current_user, asset_bundle_id, gateway, storage)
 
 
 @router.get("/{asset_bundle_id}/parse", response_model=ParseResultResponse)

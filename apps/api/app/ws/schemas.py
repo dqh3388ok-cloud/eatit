@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import Field, TypeAdapter
 
+from app.infra.llm import LLMConfig
 from app.schemas.common import SchemaModel
 from app.schemas.turns import (
     CompressedTurnSummary,
@@ -19,8 +20,27 @@ class ClientAudioChunkEvent(SchemaModel):
     content_type: str | None = None
 
 
+class ClientSessionInitEvent(SchemaModel):
+    """First frame the client must send after WS connect.
+
+    Carries the BYOK config so the backend can build a per-session gateway.
+    Arrives as a LiteLLM-compatible dict that Pydantic validates into
+    `LLMConfig`; the secret never touches the DB or logs.
+    """
+
+    event: Literal["client.session.init"]
+    config: LLMConfig
+
+
+class ClientTurnStartEvent(SchemaModel):
+    event: Literal["client.turn.start"]
+
+
 class ClientTurnEndEvent(SchemaModel):
     event: Literal["client.turn.end"]
+    question: str
+    answer: str
+    turn_index: int = Field(ge=0)
 
 
 class ClientSessionPauseEvent(SchemaModel):
@@ -36,7 +56,9 @@ class ClientSessionEndEvent(SchemaModel):
 
 
 ClientTextEvent = Annotated[
-    ClientTurnEndEvent
+    ClientSessionInitEvent
+    | ClientTurnStartEvent
+    | ClientTurnEndEvent
     | ClientSessionPauseEvent
     | ClientSessionResumeEvent
     | ClientSessionEndEvent,

@@ -8,7 +8,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.agents.framework.schemas import (
+    FrameworkAgentInput,
+    FrameworkAgentOutput,
+    FrameworkConfigInput,
+)
+from app.agents.framework.service import FrameworkAgentService
 from app.api.dependencies.auth import AuthenticatedUser
+from app.infra.llm import LLMGateway
 from app.models.asset import CandidateAsset, ParseResult
 from app.models.enums import (
     CandidateAssetStatus,
@@ -36,10 +43,23 @@ class SessionsService:
         session: AsyncSession,
         current_user: AuthenticatedUser,
         request: CreateSessionRequest,
+        gateway: LLMGateway,
     ) -> CreateSessionResponse:
         asset = await self._get_ready_asset(session, current_user, str(request.asset_bundle_id))
         parse_payload = await self._get_parse_payload(session, asset.id)
-        framework = self._mock_direction_framework(request, parse_payload)
+
+        agent_output = await FrameworkAgentService().run(
+            FrameworkAgentInput(
+                parse_payload_json=parse_payload.model_dump_json(),
+                config=FrameworkConfigInput(
+                    level="senior",
+                    style=str(request.config.style),
+                    duration_minutes=request.config.duration_minutes,
+                ),
+            ),
+            gateway,
+        )
+        framework = self._agent_to_legacy_framework(request, parse_payload, agent_output)
 
         interview_session = InterviewSession(
             user_id=current_user.id,
@@ -61,7 +81,10 @@ class SessionsService:
         session.add(
             DirectionFramework(
                 interview_session_id=interview_session.id,
-                payload=framework.model_dump(mode="json"),
+                payload={
+                    "legacy": framework.model_dump(mode="json"),
+                    "agent": agent_output.model_dump(mode="json"),
+                },
             )
         )
         await session.commit()
@@ -177,24 +200,44 @@ class SessionsService:
         return interview_session
 
     @staticmethod
-    def _mock_direction_framework(
+    def _agent_to_legacy_framework(
         request: CreateSessionRequest,
         parse_payload: ParseResultPayload,
+        agent_output: FrameworkAgentOutput,
     ) -> DirectionFrameworkSchema:
-        focus_points = parse_payload.project_hooks[0].focus_points if parse_payload.project_hooks else ["岗位理解"]
-        risk_points = [item.title for item in parse_payload.candidate_risks]
+        """Map the agent's output onto the legacy REST-facing shape.
+
+        Phase 2 shipped a fixed-structure `DirectionFramework` that the
+        frontend binds to. The agent's richer shape (focus_competencies,
+        deep_dive_anchors, pace_plan) is stored alongside under the
+        "agent" key on the DB row so the interviewer node can read it
+        later; the REST response keeps the legacy fields populated with
+        derived values so the UI doesn't break.
+        """
+        stages = [
+            FrameworkStage(
+                name=seg.name,
+                goal=seg.goal,
+                question_budget=max(1, seg.rough_minutes // 3),
+            )
+            for seg in agent_output.pace_plan.segments
+        ] or [
+            FrameworkStage(name="opening", goal="自我介绍与岗位匹配", question_budget=2),
+            FrameworkStage(name="core_project", goal="主项目深挖", question_budget=7),
+            FrameworkStage(name="closing", goal="候选人提问与总结", question_budget=1),
+        ]
+        focus_points = [c.title for c in agent_output.focus_competencies] or ["岗位理解"]
+        risk_points = [r.title for r in parse_payload.candidate_risks] or [
+            "回答跑偏",
+            "数据不具体",
+        ]
         return DirectionFrameworkSchema(
             style=request.config.style,
             direction=request.config.direction,
             duration_minutes=request.config.duration_minutes,
-            stages=[
-                FrameworkStage(name="opening", goal="自我介绍与岗位匹配", question_budget=2),
-                FrameworkStage(name="core_project", goal="主项目背景/方案/结果/难点", question_budget=7),
-                FrameworkStage(name="behavior", goal="协作/复盘/抗压", question_budget=3),
-                FrameworkStage(name="closing", goal="候选人提问与总结", question_budget=1),
-            ],
+            stages=stages,
             focus_points=focus_points,
-            risk_points=risk_points or ["回答跑偏", "数据不具体"],
+            risk_points=risk_points,
         )
 
     @staticmethod
@@ -227,7 +270,9 @@ class SessionsService:
 
         framework = None
         if interview_session.direction_framework is not None:
-            framework = DirectionFrameworkSchema.model_validate(interview_session.direction_framework.payload)
+            raw = interview_session.direction_framework.payload
+            legacy_payload = raw.get("legacy", raw) if isinstance(raw, dict) else raw
+            framework = DirectionFrameworkSchema.model_validate(legacy_payload)
 
         return SessionDetailResponse(
             **self._serialize_session_summary(interview_session).model_dump(),

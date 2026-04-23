@@ -8,21 +8,23 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.agents.report.schemas import ReportAgentInput, ReportAgentOutput
+from app.agents.report.service import ReportAgentService
 from app.api.dependencies.auth import AuthenticatedUser
 from app.infra.db import AsyncSessionFactory
+from app.infra.llm import LLMConfig, build_gateway
 from app.infra.tasks import TaskQueueInterface
 from app.models.enums import InterviewReportStatus, InterviewSessionStatus
 from app.models.report import InterviewReport
-from app.models.session import InterviewSession
+from app.models.session import DirectionFramework, InterviewSession
 from app.schemas.reports import (
     InterviewReportPayload,
     InterviewReportResponse,
+    ReportReason,
     ReportStatusResponse,
-    RoundReview,
     TriggerReportRequest,
     TriggerReportResponse,
 )
-from app.schemas.turns import NormalizedAnswer, NormalizedQuestion, NormalizedUserAssessment
 
 
 class ReportsService:
@@ -33,6 +35,7 @@ class ReportsService:
         task_queue: TaskQueueInterface,
         session_id: UUID,
         request: TriggerReportRequest,
+        llm_config: LLMConfig,
     ) -> TriggerReportResponse:
         interview_session = await self._get_owned_session(session, current_user, str(session_id))
         now = datetime.now(UTC)
@@ -60,7 +63,9 @@ class ReportsService:
         await session.commit()
         await task_queue.enqueue(
             task_name=f"generate-report:{interview_session.id}",
-            task_factory=lambda: self._generate_report_task(interview_session.id),
+            task_factory=lambda: self._generate_report_task(
+                interview_session.id, llm_config
+            ),
         )
 
         return TriggerReportResponse(
@@ -141,7 +146,9 @@ class ReportsService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
         return interview_session
 
-    async def _generate_report_task(self, session_id: str) -> None:
+    async def _generate_report_task(
+        self, session_id: str, llm_config: LLMConfig
+    ) -> None:
         async with AsyncSessionFactory() as session:
             result = await session.execute(
                 select(InterviewSession).where(InterviewSession.id == session_id)
@@ -150,8 +157,20 @@ class ReportsService:
             if interview_session is None:
                 return
 
+            framework_json = await self._load_agent_framework_json(session, interview_session.id)
+
+            agent_output = await ReportAgentService().run(
+                ReportAgentInput(
+                    parse_payload_json="{}",
+                    framework_json=framework_json,
+                    turns=[],
+                    long_term_summary=None,
+                ),
+                build_gateway(llm_config),
+            )
+            payload = self._agent_to_report_payload(agent_output)
+
             now = datetime.now(UTC)
-            payload = self._mock_report_payload()
             result = await session.execute(
                 select(InterviewReport).where(InterviewReport.interview_session_id == interview_session.id)
             )
@@ -176,35 +195,51 @@ class ReportsService:
             await session.commit()
 
     @staticmethod
-    def _mock_report_payload() -> InterviewReportPayload:
-        question = NormalizedQuestion(
-            turn_index=1,
-            stage_name="opening",
-            question_tag="岗位匹配",
-            question_text="请先做一个简短自我介绍，并说明你为什么适合这个岗位？",
+    async def _load_agent_framework_json(
+        session: AsyncSession, interview_session_id: str
+    ) -> str:
+        result = await session.execute(
+            select(DirectionFramework).where(
+                DirectionFramework.interview_session_id == interview_session_id
+            )
         )
-        answer = NormalizedAnswer(
-            turn_index=1,
-            transcript_text="我主要做过 AI 产品和增长实验平台，能把场景、指标和跨团队协作串起来。",
-            cleaned_sentences=[
-                "我主要做过 AI 产品。",
-                "我也负责过增长实验平台。",
-                "我能把场景、指标和跨团队协作串起来。",
-            ],
-            key_points=["AI 产品经验", "增长实验平台", "指标与协作"],
-        )
-        assessment = NormalizedUserAssessment(
-            turn_index=1,
-            strengths=["岗位相关度较高", "经历映射较直接"],
-            weaknesses=["量化结果还不够具体"],
-            risks=["容易停留在概括层"],
-            suggestions=["补充关键指标", "补充主导动作"],
-            evidence=["提到了 AI 产品和增长实验平台，但缺少具体结果数据。"],
-        )
+        row = result.scalar_one_or_none()
+        if row is None or not isinstance(row.payload, dict):
+            return "{}"
+        # Prefer the agent-shaped subtree when present; fall back to the
+        # legacy payload for rows created before P3.5.
+        import json as _json
+
+        agent_payload = row.payload.get("agent") if "agent" in row.payload else row.payload
+        return _json.dumps(agent_payload, ensure_ascii=False)
+
+    @staticmethod
+    def _agent_to_report_payload(agent_output: ReportAgentOutput) -> InterviewReportPayload:
+        """Map the agent's report shape to the legacy REST envelope.
+
+        `overall_summary` / `next_actions` map directly. `pass_probability`
+        and `reasons` were added to the REST schema in P3.5 so callers
+        can surface the evidence-linked verdicts. Strengths / improvements
+        are synthesized from the reasons' verdicts so the existing UI
+        pills keep rendering with useful content.
+        """
+        reasons = [
+            ReportReason(
+                aspect=r.aspect,
+                verdict=r.verdict,
+                evidence_turn_index=r.evidence_turn_index,
+                quote=r.quote,
+            )
+            for r in agent_output.reasons
+        ]
+        strengths = [r.aspect for r in agent_output.reasons if r.verdict in ("strong", "solid")]
+        improvements = [r.aspect for r in agent_output.reasons if r.verdict in ("mixed", "weak")]
         return InterviewReportPayload(
-            overall_summary="候选人整体方向匹配度较好，但需要进一步补齐量化结果和 ownership 证据。",
-            round_reviews=[RoundReview(question=question, answer=answer, assessment=assessment)],
-            strengths=["方向匹配度好", "表达结构清晰"],
-            improvements=["补充量化结果", "增强项目 ownership 证明"],
-            next_actions=["重新面试项目深挖方向", "准备 3 组关键指标案例"],
+            overall_summary=agent_output.summary,
+            round_reviews=[],
+            strengths=strengths,
+            improvements=improvements,
+            next_actions=list(agent_output.next_actions),
+            pass_probability=agent_output.pass_probability,
+            reasons=reasons,
         )

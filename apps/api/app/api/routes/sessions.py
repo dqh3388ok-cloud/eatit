@@ -7,10 +7,12 @@ from fastapi import APIRouter, Body, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.auth import AuthenticatedUser, get_current_user
+from app.api.dependencies.llm import get_llm_config, get_llm_gateway
 from app.api.dependencies.tasks import get_task_queue
 from app.domain.reports.service import ReportsService
 from app.domain.sessions.service import SessionsService
 from app.infra.db import get_async_session
+from app.infra.llm import LLMConfig, LLMGateway
 from app.infra.tasks import TaskQueueInterface
 from app.schemas.reports import InterviewReportResponse, TriggerReportRequest, TriggerReportResponse
 from app.schemas.sessions import (
@@ -33,8 +35,9 @@ async def create_session(
     request: CreateSessionRequest,
     current_user: AuthenticatedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
+    gateway: LLMGateway = Depends(get_llm_gateway),
 ) -> CreateSessionResponse:
-    return await sessions_service.create_session(session, current_user, request)
+    return await sessions_service.create_session(session, current_user, request, gateway)
 
 
 @router.get("/{session_id}", response_model=SessionDetailResponse)
@@ -71,6 +74,7 @@ async def trigger_report(
     current_user: AuthenticatedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_async_session),
     task_queue: TaskQueueInterface = Depends(get_task_queue),
+    llm_config: LLMConfig = Depends(get_llm_config),
 ) -> TriggerReportResponse:
     return await reports_service.trigger_report(
         session,
@@ -78,6 +82,7 @@ async def trigger_report(
         task_queue,
         session_id,
         request,
+        llm_config,
     )
 
 
