@@ -23,7 +23,6 @@ class Settings(BaseSettings):
     database_url: str = DEFAULT_DATABASE_URL
     cache_dir: str | None = None
     storage_dir: str | None = None
-    llm_api_key: str = ""
     deepgram_api_key: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
@@ -34,6 +33,7 @@ class Settings(BaseSettings):
         env_file=(ROOT_ENV_PATH, API_ENV_PATH),
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
 

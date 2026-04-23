@@ -661,6 +661,7 @@ dependencies = [
     { name = "sentry-sdk" },
     { name = "sqlalchemy" },
     { name = "structlog" },
+    { name = "tenacity" },
     { name = "uuid-utils" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -695,6 +696,7 @@ requires-dist = [
     { name = "sentry-sdk", specifier = ">=2.17.0,<3.0.0" },
     { name = "sqlalchemy", specifier = ">=2.0.36,<3.0.0" },
     { name = "structlog", specifier = ">=24.4.0,<25.0.0" },
+    { name = "tenacity", specifier = ">=9.1.4" },
     { name = "uuid-utils", specifier = ">=0.14.1,<1.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32.0,<1.0.0" },
 ]
