@@ -26,7 +26,7 @@ Match the section prefix to the file.
 
 ## Completed
 
-- [x] P4.1 ASR infra — Azure Speech SDK + abstraction + mock backend (fddaaf6, 2026-04-24)
+- [x] P4.1 ASR infra — Azure Speech SDK + abstraction + mock backend (0c0e0b1, 2026-04-24)
 - [x] P3.5X Test sweep + E2E — meta + observer smoke (a6782c8, 2026-04-24)
 - [x] P3.5B.3 Interview observer sidebar — panel + settings toggle (5bd383b, 2026-04-24)
 - [x] P3.5A.3 MetaReport frontend — list + detail page + history CTA (70061b5, 2026-04-24)
