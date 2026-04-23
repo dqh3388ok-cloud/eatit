@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -60,7 +61,25 @@ class ReportsService:
             report.payload = {}
 
         interview_session.status = InterviewSessionStatus.REPORT_GENERATING
-        await session.commit()
+        try:
+            await session.commit()
+        except IntegrityError:
+            # Race: a concurrent POST /report for the same session inserted
+            # first. Rollback, re-fetch, and update the row that beat us.
+            await session.rollback()
+            result = await session.execute(
+                select(InterviewReport).where(
+                    InterviewReport.interview_session_id == interview_session.id
+                )
+            )
+            report = result.scalar_one()
+            if request.force_regenerate or report.status != InterviewReportStatus.GENERATING:
+                report.status = InterviewReportStatus.GENERATING
+                report.requested_at = now
+                report.generated_at = None
+                report.payload = {}
+            interview_session.status = InterviewSessionStatus.REPORT_GENERATING
+            await session.commit()
         await task_queue.enqueue(
             task_name=f"generate-report:{interview_session.id}",
             task_factory=lambda: self._generate_report_task(
@@ -192,7 +211,26 @@ class ReportsService:
                     report.requested_at = now
 
             interview_session.status = InterviewSessionStatus.REPORT_READY
-            await session.commit()
+            try:
+                await session.commit()
+            except IntegrityError:
+                # Race: trigger_report's INSERT landed while we were preparing
+                # ours. Rollback, re-fetch, update the winner with the payload
+                # we just generated — we still want the READY result visible.
+                await session.rollback()
+                result = await session.execute(
+                    select(InterviewReport).where(
+                        InterviewReport.interview_session_id == interview_session.id
+                    )
+                )
+                report = result.scalar_one()
+                report.status = InterviewReportStatus.READY
+                report.generated_at = now
+                report.payload = payload.model_dump(mode="json")
+                if report.requested_at is None:
+                    report.requested_at = now
+                interview_session.status = InterviewSessionStatus.REPORT_READY
+                await session.commit()
 
     @staticmethod
     async def _load_agent_framework_json(
