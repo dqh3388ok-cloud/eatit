@@ -1,3 +1,4 @@
+from app.models.app_setting import AppSetting
 from app.models.asset import CandidateAsset, ParseResult
 from app.models.base import Base
 from app.models.report import InterviewReport
@@ -12,6 +13,7 @@ from app.models.session import (
 from app.models.user import User
 
 __all__ = [
+    "AppSetting",
     "Base",
     "CandidateAsset",
     "CompressedTurnSummary",
