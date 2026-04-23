@@ -1,0 +1,59 @@
+/* Print / PDF export rules for the ReportPage.
+ *
+ * Imported directly from ReportPage.tsx so the rules are scoped by side
+ * effect to the route that uses them — the desktop app's other pages are
+ * unaffected by @media print anyway because the same rules only fire when
+ * the browser's print flow is active.
+ *
+ * Goals:
+ *   - Hide chrome: Sidebar, Topbar, back-button, 导出 PDF button.
+ *   - Force light background + dark ink regardless of theme, so the SVG
+ *     ring + text render cleanly on white paper.
+ *   - Preserve PassProbabilityRing: avoid any transition/animation state
+ *     that might freeze the stroke at 0 during the print snapshot.
+ *   - Reserve page breaks so ReasonRow entries don't split mid-card.
+ */
+
+@media print {
+  /* Chrome --------------------------------------------------------- */
+  .app-shell__sidebar,
+  .app-shell__topbar,
+  .report-page__print-hide {
+    display: none !important;
+  }
+
+  /* Global typography + background -------------------------------- */
+  html,
+  body,
+  .app-shell__main {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Reset the constrained padding so the report takes the full A4 width. */
+  .app-shell__content {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  /* PassProbabilityRing: ensure the ring prints as a solid arc.
+     Some browsers pause CSS transitions during `print` snapshots — we
+     don't actually animate stroke-dashoffset, but defend against any
+     future transition change by forcing print-safe properties. */
+  .report-page svg circle {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  /* Avoid splitting a single reason across two pages. ReasonRow renders
+     as `<li class="ds-card">` inside the report page's reasons list. */
+  .report-page ul li.ds-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Tighten vertical rhythm between sections on paper. */
+  .report-page section {
+    margin-bottom: 16pt;
+  }
+}

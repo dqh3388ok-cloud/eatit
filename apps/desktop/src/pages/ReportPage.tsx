@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 import type { InterviewReportResponse } from "@eatit/shared-types";
 import { generateReport, getSessionReport } from "@/api/sessions";
 import { PassProbabilityRing } from "@/pages/report/PassProbabilityRing";
 import { ReasonRow } from "@/pages/report/ReasonRow";
+// Side-effect stylesheet: adds @media print rules that hide chrome
+// and paginate ReasonRow entries cleanly. See print.css for details.
+import "@/pages/report/print.css";
 
 type ReportState =
   | { kind: "loading" }
@@ -180,9 +183,48 @@ export function ReportPage(): JSX.Element {
 
   const payload = state.data.payload;
 
+  const handleExportPdf = () => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-      {header}
+    <div
+      className="report-page"
+      style={{ display: "flex", flexDirection: "column", gap: 22 }}
+    >
+      <div
+        className="report-page__print-hide"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>{header}</div>
+        <button
+          type="button"
+          onClick={handleExportPdf}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 14px",
+            borderRadius: "var(--r-md)",
+            border: "1px solid var(--line)",
+            background: "var(--bg-elev)",
+            color: "var(--ink-900)",
+            fontSize: 13,
+            fontWeight: 500,
+            cursor: "pointer",
+          }}
+        >
+          <Printer size={14} />
+          导出 PDF
+        </button>
+      </div>
 
       <section
         className="ds-card"
