@@ -35,6 +35,9 @@ export type InterviewContext = {
   lastAssessment: TurnAssessmentSummary | null;
   observations: ObserverEntry[];
   error: string | null;
+  isRecording: boolean;
+  partialTranscript: string;
+  finalTranscript: string;
 };
 
 export type InterviewEvent =
@@ -53,6 +56,10 @@ export type InterviewEvent =
         actionable: boolean;
       };
     }
+  | { type: "AUDIO_START" }
+  | { type: "AUDIO_STOP" }
+  | { type: "TRANSCRIPT_PARTIAL"; text: string }
+  | { type: "TRANSCRIPT_FINAL"; text: string }
   | { type: "END_SESSION" }
   | { type: "WS_ERROR"; message: string };
 
@@ -113,6 +120,9 @@ export const interviewMachine = createMachine({
     lastAssessment: null,
     observations: [],
     error: null,
+    isRecording: false,
+    partialTranscript: "",
+    finalTranscript: "",
   },
   on: {
     SERVER_OBSERVATION: {
@@ -148,6 +158,9 @@ export const interviewMachine = createMachine({
             currentQuestion: ({ event }) => event.payload,
             currentTurnIndex: ({ event }) => event.payload.turn_index,
             draftAnswer: "",
+            partialTranscript: "",
+            finalTranscript: "",
+            isRecording: false,
           }),
         },
         END_SESSION: "ended",
@@ -164,6 +177,28 @@ export const interviewMachine = createMachine({
         SUBMIT_ANSWER: {
           target: "scoring",
           guard: ({ context }) => context.draftAnswer.trim().length > 0,
+        },
+        AUDIO_START: {
+          actions: assign({
+            isRecording: true,
+            partialTranscript: "",
+            finalTranscript: "",
+          }),
+        },
+        AUDIO_STOP: {
+          actions: assign({ isRecording: false }),
+        },
+        TRANSCRIPT_PARTIAL: {
+          actions: assign({ partialTranscript: ({ event }) => event.text }),
+        },
+        TRANSCRIPT_FINAL: {
+          // The final transcript is the authoritative answer text for this
+          // turn — it replaces whatever draftAnswer currently holds.
+          actions: assign({
+            finalTranscript: ({ event }) => event.text,
+            draftAnswer: ({ event }) => event.text,
+            partialTranscript: "",
+          }),
         },
         END_SESSION: "ended",
       },
@@ -182,6 +217,9 @@ export const interviewMachine = createMachine({
             currentQuestion: ({ event }) => event.payload,
             currentTurnIndex: ({ event }) => event.payload.turn_index,
             draftAnswer: "",
+            partialTranscript: "",
+            finalTranscript: "",
+            isRecording: false,
           }),
         },
         END_SESSION: "ended",

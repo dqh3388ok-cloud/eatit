@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMachine } from "@xstate/react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
@@ -9,10 +9,19 @@ import type {
 import { API_BASE_URL } from "@/api/client";
 import { getAppSetting } from "@/api/appSettings";
 import { loadLLMConfig, type LLMConfig } from "@/lib/llm/config";
+import {
+  createAudioRecorder,
+  requestMicPermission,
+  type AudioRecorderHandle,
+} from "@/lib/mic";
+import { LiveCaption } from "@/pages/interview/LiveCaption";
 import { ObserverPanel } from "@/pages/interview/ObserverPanel";
+import { VoiceControl } from "@/pages/interview/VoiceControl";
 import { interviewMachine } from "@/statecharts/interview-machine";
 
 const OBSERVER_BREAKPOINT_PX = 1100;
+
+type InputMode = "voice" | "text";
 
 function getViewportWidth(): number {
   if (typeof window === "undefined") return OBSERVER_BREAKPOINT_PX;
@@ -30,8 +39,12 @@ export function InterviewPage(): JSX.Element {
   const navigate = useNavigate();
   const [state, send] = useMachine(interviewMachine);
   const socketRef = useRef<WebSocket | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
+  const recorderRef = useRef<AudioRecorderHandle | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
+  const [inputMode, setInputMode] = useState<InputMode>("voice");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const [observerPanelEnabled, setObserverPanelEnabled] = useState(true);
   const [observerCollapsed, setObserverCollapsed] = useState(
     () => getViewportWidth() < OBSERVER_BREAKPOINT_PX,
@@ -120,6 +133,10 @@ export function InterviewPage(): JSX.Element {
           send({ type: "SERVER_ASSESSED", payload: parsed.payload });
         } else if (parsed.event === "server.coach.observation") {
           send({ type: "SERVER_OBSERVATION", payload: parsed.payload });
+        } else if (parsed.event === "server.transcript.partial") {
+          send({ type: "TRANSCRIPT_PARTIAL", text: parsed.payload.text });
+        } else if (parsed.event === "server.transcript.final") {
+          send({ type: "TRANSCRIPT_FINAL", text: parsed.payload.text });
         } else if (parsed.event === "server.error") {
           send({ type: "WS_ERROR", message: `${parsed.code}: ${parsed.message}` });
         }
@@ -158,12 +175,89 @@ export function InterviewPage(): JSX.Element {
     }
   }, [state, sessionId, navigate]);
 
-  const sendClientFrame = (frame: ClientTextEvent) => {
+  const sendClientFrame = useCallback((frame: ClientTextEvent) => {
     const socket = socketRef.current;
     if (socket && socket.readyState === WebSocket.OPEN) {
       socket.send(JSON.stringify(frame));
     }
-  };
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    const recorder = recorderRef.current;
+    if (recorder) {
+      recorder.stop();
+    }
+    recorderRef.current = null;
+  }, []);
+
+  const handleVoiceStart = useCallback(async () => {
+    const question = state.context.currentQuestion;
+    if (!question) return;
+    if (state.context.isRecording) return;
+    setVoiceError(null);
+
+    let stream = micStreamRef.current;
+    if (!stream) {
+      const result = await requestMicPermission();
+      if (!result.ok) {
+        setVoiceError(result.message);
+        return;
+      }
+      stream = result.stream;
+      micStreamRef.current = stream;
+    }
+
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      setVoiceError("WebSocket 尚未连接,无法开始录音");
+      return;
+    }
+
+    const turnIndex = question.turn_index;
+    const recorder = createAudioRecorder(
+      stream,
+      (chunk) => {
+        chunk
+          .arrayBuffer()
+          .then((buffer) => {
+            const s = socketRef.current;
+            if (s && s.readyState === WebSocket.OPEN) {
+              s.send(buffer);
+            }
+          })
+          .catch(() => {
+            /* chunk arrayBuffer failure is non-fatal for the stream */
+          });
+      },
+      undefined,
+      { timesliceMs: 100 },
+    );
+    recorderRef.current = recorder;
+
+    sendClientFrame({ event: "client.audio.start", turn_index: turnIndex });
+    recorder.start();
+    send({ type: "AUDIO_START" });
+  }, [state, sendClientFrame, send]);
+
+  const handleVoiceStop = useCallback(() => {
+    const question = state.context.currentQuestion;
+    if (!question) return;
+    if (!state.context.isRecording) return;
+    stopRecording();
+    sendClientFrame({ event: "client.audio.stop", turn_index: question.turn_index });
+    send({ type: "AUDIO_STOP" });
+  }, [state, sendClientFrame, send, stopRecording]);
+
+  useEffect(() => {
+    return () => {
+      stopRecording();
+      const stream = micStreamRef.current;
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        micStreamRef.current = null;
+      }
+    };
+  }, [stopRecording]);
 
   const handleSubmit = () => {
     const question = state.context.currentQuestion;
@@ -198,6 +292,7 @@ export function InterviewPage(): JSX.Element {
     );
   }
 
+  const isUserAnswering = state.matches("user_answering");
   const showObserverPanel = observerPanelEnabled;
   const mainColumn = (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -263,32 +358,75 @@ export function InterviewPage(): JSX.Element {
           </div>
         )}
 
-        <textarea
-          value={state.context.draftAnswer}
-          onChange={(e) => send({ type: "UPDATE_ANSWER", value: e.target.value })}
-          placeholder="在这里输入你的回答..."
-          disabled={!state.matches("user_answering")}
-          style={{
-            width: "100%",
-            minHeight: 140,
-            padding: 14,
-            borderRadius: "var(--r-md)",
-            border: "1px solid var(--line)",
-            background: state.matches("user_answering") ? "var(--bg-elev)" : "var(--bg-sunken)",
-            color: "var(--ink-900)",
-            fontFamily: "var(--f-sans)",
-            fontSize: 14,
-            lineHeight: 1.6,
-            resize: "vertical",
+        <ModeToggle
+          mode={inputMode}
+          disabled={!isUserAnswering || state.context.isRecording}
+          onChange={(next) => {
+            if (next === inputMode) return;
+            if (state.context.isRecording) handleVoiceStop();
+            setInputMode(next);
           }}
         />
+
+        {inputMode === "voice" ? (
+          <>
+            <VoiceControl
+              isRecording={state.context.isRecording}
+              disabled={!isUserAnswering}
+              partialTranscript={state.context.partialTranscript}
+              onStart={() => {
+                void handleVoiceStart();
+              }}
+              onStop={handleVoiceStop}
+            />
+            <LiveCaption
+              finalTranscript={state.context.finalTranscript}
+              partialTranscript={state.context.partialTranscript}
+            />
+            {voiceError ? (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--warn)",
+                  padding: "8px 10px",
+                  borderRadius: "var(--r-sm)",
+                  background: "var(--warn-softer)",
+                  border: "1px solid var(--warn)",
+                }}
+              >
+                {voiceError}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <textarea
+            value={state.context.draftAnswer}
+            onChange={(e) => send({ type: "UPDATE_ANSWER", value: e.target.value })}
+            placeholder="在这里输入你的回答..."
+            disabled={!isUserAnswering}
+            style={{
+              width: "100%",
+              minHeight: 140,
+              padding: 14,
+              borderRadius: "var(--r-md)",
+              border: "1px solid var(--line)",
+              background: isUserAnswering ? "var(--bg-elev)" : "var(--bg-sunken)",
+              color: "var(--ink-900)",
+              fontFamily: "var(--f-sans)",
+              fontSize: 14,
+              lineHeight: 1.6,
+              resize: "vertical",
+            }}
+          />
+        )}
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={
-              !state.matches("user_answering") ||
+              !isUserAnswering ||
+              state.context.isRecording ||
               state.context.draftAnswer.trim().length === 0
             }
             style={{
@@ -296,14 +434,15 @@ export function InterviewPage(): JSX.Element {
               borderRadius: "var(--r-md)",
               border: "none",
               background:
-                state.matches("user_answering") &&
+                isUserAnswering &&
+                !state.context.isRecording &&
                 state.context.draftAnswer.trim().length > 0
                   ? "var(--brand)"
                   : "var(--ink-200)",
               color: "white",
               fontSize: 13.5,
               fontWeight: 500,
-              cursor: state.matches("user_answering") ? "pointer" : "not-allowed",
+              cursor: isUserAnswering && !state.context.isRecording ? "pointer" : "not-allowed",
             }}
           >
             提交回答
@@ -385,6 +524,59 @@ export function InterviewPage(): JSX.Element {
         collapsed={observerCollapsed}
         onToggle={() => setObserverCollapsed((v) => !v)}
       />
+    </div>
+  );
+}
+
+function ModeToggle({
+  mode,
+  disabled,
+  onChange,
+}: {
+  mode: InputMode;
+  disabled: boolean;
+  onChange: (next: InputMode) => void;
+}): JSX.Element {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="回答方式"
+      style={{
+        display: "inline-flex",
+        alignSelf: "flex-start",
+        padding: 3,
+        gap: 2,
+        borderRadius: "var(--r-pill)",
+        background: "var(--bg-sunken)",
+        border: "1px solid var(--line)",
+      }}
+    >
+      {(["voice", "text"] as const).map((value) => {
+        const selected = mode === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            disabled={disabled && !selected}
+            onClick={() => onChange(value)}
+            style={{
+              padding: "6px 14px",
+              borderRadius: "var(--r-pill)",
+              border: "none",
+              background: selected ? "var(--bg-elev)" : "transparent",
+              color: selected ? "var(--ink-900)" : "var(--ink-500)",
+              fontSize: 12.5,
+              fontWeight: selected ? 500 : 400,
+              cursor: disabled && !selected ? "not-allowed" : "pointer",
+              boxShadow: selected ? "var(--shadow-xs)" : "none",
+            }}
+          >
+            {value === "voice" ? "语音" : "文字"}
+          </button>
+        );
+      })}
     </div>
   );
 }

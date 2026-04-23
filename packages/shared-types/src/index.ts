@@ -358,9 +358,14 @@ export type MetaReportListResponse = {
   total: number;
 };
 
-export type ClientAudioChunkEvent = {
-  event: "client.audio.chunk";
-  content_type?: string | null;
+export type ClientAudioStartEvent = {
+  event: "client.audio.start";
+  turn_index: number;
+};
+
+export type ClientAudioStopEvent = {
+  event: "client.audio.stop";
+  turn_index: number;
 };
 
 export type LLMConfigPayload = {
@@ -402,22 +407,26 @@ export type ClientTextEvent =
   | ClientSessionInitEvent
   | ClientTurnStartEvent
   | ClientTurnEndEvent
+  | ClientAudioStartEvent
+  | ClientAudioStopEvent
   | ClientSessionPauseEvent
   | ClientSessionResumeEvent
   | ClientSessionEndEvent;
 
-export type ClientEvent = ClientAudioChunkEvent | ClientTextEvent;
+export type ClientEvent = ClientTextEvent;
 
 export type ServerTranscriptPartialEvent = {
   event: "server.transcript.partial";
   payload: {
+    turn_index: number;
     text: string;
   };
 };
 
-export type ServerTranscriptFinalizedEvent = {
-  event: "server.transcript.finalized";
+export type ServerTranscriptFinalEvent = {
+  event: "server.transcript.final";
   payload: {
+    turn_index: number;
     text: string;
   };
 };
@@ -493,7 +502,7 @@ export type ServerErrorEvent = {
 
 export type ServerEvent =
   | ServerTranscriptPartialEvent
-  | ServerTranscriptFinalizedEvent
+  | ServerTranscriptFinalEvent
   | ServerTurnAssessedEvent
   | ServerTurnCompressedEvent
   | ServerQuestionGeneratedEvent

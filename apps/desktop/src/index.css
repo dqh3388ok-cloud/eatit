@@ -201,3 +201,19 @@
     background-position: -200% 0;
   }
 }
+
+@keyframes eatit-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+.pulse-dot {
+  animation: eatit-pulse 1.1s ease-in-out infinite;
+}
