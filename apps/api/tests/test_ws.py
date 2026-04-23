@@ -180,7 +180,19 @@ def test_websocket_accepts_session_init_then_turn(monkeypatch) -> None:
 
 def test_websocket_binary_event_after_init(monkeypatch) -> None:
     """Binary mid-session frames still get `not_implemented` (unchanged)."""
+    from app.agents.interviewer.schemas import InterviewerAgentOutput
+    from app.agents.interviewer.service import InterviewerAgentService
+
     _patch_ws_deps(monkeypatch)
+
+    async def fake_interviewer_run(_self, _input, _gateway):
+        return InterviewerAgentOutput(
+            question="起个手,介绍一下你自己。",
+            intent="暖场",
+            expected_depth="surface",
+        )
+
+    monkeypatch.setattr(InterviewerAgentService, "run", fake_interviewer_run)
 
     with TestClient(app) as client:
         with client.websocket_connect(
@@ -189,6 +201,11 @@ def test_websocket_binary_event_after_init(monkeypatch) -> None:
             websocket.send_json(
                 {"event": "client.session.init", "config": _VALID_CONFIG_PAYLOAD}
             )
+            # Drain the bootstrap question Ralph now sends on init so we can
+            # isolate the binary-frame response below.
+            bootstrap = websocket.receive_json()
+            assert bootstrap["event"] == "server.question.generated"
+
             websocket.send_bytes(b"audio-chunk")
             response = websocket.receive_json()
 

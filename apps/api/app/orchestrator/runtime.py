@@ -25,6 +25,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from app.agents.interviewer.schemas import InterviewerAgentInput
+from app.agents.interviewer.service import InterviewerAgentService
 from app.agents.reference.schemas import ReferenceAgentInput
 from app.agents.reference.service import ReferenceAgentService
 from app.infra.llm import LLMGateway, build_gateway
@@ -63,6 +65,38 @@ class SessionRuntime:
     @property
     def event_queue(self) -> asyncio.Queue:
         return self._event_queue
+
+    async def bootstrap_first_question(self, *, framework_json: str) -> None:
+        """Emit a turn-0 question so the candidate has something to answer.
+
+        The turn_graph is built around assessing the previous turn, but there
+        is no previous turn at session start. We short-circuit straight to
+        the InterviewerAgent with empty `recent_turns`, publish the result
+        as `QuestionGeneratedEvent(turn_index=0)`, and let the normal
+        `run_turn` path take over from turn 1 onwards.
+        """
+        if self._closed or self._gateway is None:
+            raise SessionClosedError("SessionRuntime has been closed")
+
+        output = await InterviewerAgentService().run(
+            InterviewerAgentInput(
+                framework_json=framework_json,
+                recent_turns=[],
+                long_term_summary=None,
+                remaining_minutes=None,
+            ),
+            self._gateway,
+        )
+        await self._event_queue.put(
+            QuestionGeneratedEvent(
+                turn_index=0,
+                question=output.question,
+                intent=output.intent,
+                expected_depth=output.expected_depth,
+                followup_hint=output.followup_hint,
+                should_end=output.should_end,
+            )
+        )
 
     async def run_turn(
         self,

@@ -97,6 +97,23 @@ async def interview_socket(websocket: WebSocket, session_id: UUID) -> None:
             llm_config=parsed_first.config,
         )
 
+        # Bootstrap turn 0 so the candidate actually sees a question.
+        # The turn_graph handles turn N>0 (assess previous answer, then
+        # pick the next question); at turn 0 there is no previous answer,
+        # so we call the interviewer directly with an empty history.
+        try:
+            await runtime.bootstrap_first_question(framework_json=framework_json)
+        except Exception as exc:  # noqa: BLE001 — surface any agent failure
+            await socket_manager.send_error(
+                websocket,
+                code="bootstrap_failed",
+                message=f"无法生成首题:{exc}",
+                recoverable=False,
+            )
+            await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+            return
+        await _drain_queue(websocket, runtime)
+
         # --- Main loop ---
         while True:
             message = await websocket.receive()
