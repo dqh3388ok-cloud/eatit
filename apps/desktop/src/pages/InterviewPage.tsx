@@ -8,6 +8,7 @@ import type {
 } from "@eatit/shared-types";
 import { API_BASE_URL } from "@/api/client";
 import { getAppSetting } from "@/api/appSettings";
+import { fetchASRHealth } from "@/api/asr";
 import { loadLLMConfig, type LLMConfig } from "@/lib/llm/config";
 import {
   createAudioRecorder,
@@ -44,6 +45,7 @@ export function InterviewPage(): JSX.Element {
   const [configLoading, setConfigLoading] = useState(true);
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>("voice");
+  const [asrAvailable, setAsrAvailable] = useState<boolean | null>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [observerPanelEnabled, setObserverPanelEnabled] = useState(true);
   const [observerCollapsed, setObserverCollapsed] = useState(
@@ -85,6 +87,48 @@ export function InterviewPage(): JSX.Element {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getAppSetting<InputMode>("interview_input_mode")
+      .then((value) => {
+        if (!mounted) return;
+        setInputMode(value === "text" ? "text" : "voice");
+      })
+      .catch(() => {
+        /* backend unavailable — default stays "voice" */
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchASRHealth()
+      .then((health) => {
+        if (!mounted) return;
+        setAsrAvailable(Boolean(health.available));
+      })
+      .catch(() => {
+        if (mounted) setAsrAvailable(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    // If the server can't do ASR, voice mode is unusable. Flip to text and
+    // explain in a banner. Deliberately a one-way transition — the user can
+    // still flip back manually once they fix the server env.
+    if (asrAvailable === false && inputMode === "voice") {
+      setInputMode("text");
+      setVoiceError(
+        "语音模式不可用:服务端未配置 Azure Speech。已切换到文字模式。",
+      );
+    }
+  }, [asrAvailable, inputMode]);
 
   useEffect(() => {
     function onResize() {
@@ -138,7 +182,19 @@ export function InterviewPage(): JSX.Element {
         } else if (parsed.event === "server.transcript.final") {
           send({ type: "TRANSCRIPT_FINAL", text: parsed.payload.text });
         } else if (parsed.event === "server.error") {
-          send({ type: "WS_ERROR", message: `${parsed.code}: ${parsed.message}` });
+          if (parsed.code === "asr_unavailable") {
+            // Backend rejected audio.start because Azure env isn't
+            // configured. Fall back to text mode so the user can still
+            // answer; banner explains what happened.
+            setAsrAvailable(false);
+            setInputMode("text");
+            setVoiceError(
+              `语音模式不可用:${parsed.message || "服务端未配置 Azure Speech"}。已切换到文字模式。`,
+            );
+            send({ type: "AUDIO_STOP" });
+          } else {
+            send({ type: "WS_ERROR", message: `${parsed.code}: ${parsed.message}` });
+          }
         }
       } catch (err) {
         send({
@@ -361,10 +417,12 @@ export function InterviewPage(): JSX.Element {
         <ModeToggle
           mode={inputMode}
           disabled={!isUserAnswering || state.context.isRecording}
+          voiceDisabled={asrAvailable === false}
           onChange={(next) => {
             if (next === inputMode) return;
             if (state.context.isRecording) handleVoiceStop();
             setInputMode(next);
+            setVoiceError(null);
           }}
         />
 
@@ -531,10 +589,12 @@ export function InterviewPage(): JSX.Element {
 function ModeToggle({
   mode,
   disabled,
+  voiceDisabled,
   onChange,
 }: {
   mode: InputMode;
   disabled: boolean;
+  voiceDisabled: boolean;
   onChange: (next: InputMode) => void;
 }): JSX.Element {
   return (
@@ -553,13 +613,16 @@ function ModeToggle({
     >
       {(["voice", "text"] as const).map((value) => {
         const selected = mode === value;
+        const isVoice = value === "voice";
+        const effectiveDisabled =
+          (disabled && !selected) || (isVoice && voiceDisabled && !selected);
         return (
           <button
             key={value}
             type="button"
             role="radio"
             aria-checked={selected}
-            disabled={disabled && !selected}
+            disabled={effectiveDisabled}
             onClick={() => onChange(value)}
             style={{
               padding: "6px 14px",
@@ -569,7 +632,7 @@ function ModeToggle({
               color: selected ? "var(--ink-900)" : "var(--ink-500)",
               fontSize: 12.5,
               fontWeight: selected ? 500 : 400,
-              cursor: disabled && !selected ? "not-allowed" : "pointer",
+              cursor: effectiveDisabled ? "not-allowed" : "pointer",
               boxShadow: selected ? "var(--shadow-xs)" : "none",
             }}
           >

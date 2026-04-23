@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { getAppSetting, putAppSetting } from "@/api/appSettings";
+import { fetchASRHealth } from "@/api/asr";
 import { ProviderSelect } from "@/pages/settings/ProviderSelect";
 import { KeyInput } from "@/pages/settings/KeyInput";
 import { TestConnectionButton } from "@/pages/settings/TestConnectionButton";
 import { DataManagement } from "@/pages/settings/DataManagement";
 import { loadLLMConfig, type LLMConfig, type LLMProvider } from "@/lib/llm/config";
 import { getProvider, PROVIDERS } from "@/lib/llm/providers";
+
+type InterviewInputMode = "voice" | "text";
 
 const DEFAULT_PROVIDER: LLMProvider = "siliconflow";
 
@@ -199,48 +202,104 @@ export function SettingsPage(): JSX.Element {
 }
 
 function InterviewExperienceSection(): JSX.Element {
-  const [enabled, setEnabled] = useState<boolean>(true);
-  const [hydrated, setHydrated] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [observerEnabled, setObserverEnabled] = useState<boolean>(true);
+  const [observerHydrated, setObserverHydrated] = useState(false);
+  const [observerSaving, setObserverSaving] = useState(false);
+  const [observerError, setObserverError] = useState<string | null>(null);
+
+  const [inputMode, setInputMode] = useState<InterviewInputMode>("voice");
+  const [modeHydrated, setModeHydrated] = useState(false);
+  const [modeSaving, setModeSaving] = useState(false);
+  const [modeError, setModeError] = useState<string | null>(null);
+  const [asrAvailable, setAsrAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
     let mounted = true;
     getAppSetting<boolean>("observer_panel_enabled")
       .then((value) => {
         if (!mounted) return;
-        setEnabled(value === null || value === undefined ? true : Boolean(value));
+        setObserverEnabled(value === null || value === undefined ? true : Boolean(value));
       })
       .catch(() => {
         /* backend unavailable — default to on */
       })
       .finally(() => {
-        if (mounted) setHydrated(true);
+        if (mounted) setObserverHydrated(true);
       });
     return () => {
       mounted = false;
     };
   }, []);
 
-  const handleToggle = async () => {
-    const next = !enabled;
-    setEnabled(next);
-    setError(null);
-    setSaving(true);
+  useEffect(() => {
+    let mounted = true;
+    getAppSetting<InterviewInputMode>("interview_input_mode")
+      .then((value) => {
+        if (!mounted) return;
+        setInputMode(value === "text" ? "text" : "voice");
+      })
+      .catch(() => {
+        /* backend unavailable — default to voice */
+      })
+      .finally(() => {
+        if (mounted) setModeHydrated(true);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchASRHealth()
+      .then((health) => {
+        if (mounted) setAsrAvailable(Boolean(health.available));
+      })
+      .catch(() => {
+        if (mounted) setAsrAvailable(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleObserverToggle = async () => {
+    const next = !observerEnabled;
+    setObserverEnabled(next);
+    setObserverError(null);
+    setObserverSaving(true);
     try {
       await putAppSetting<boolean>("observer_panel_enabled", next);
     } catch (err) {
-      setEnabled(!next);
-      setError(err instanceof Error ? err.message : "保存失败");
+      setObserverEnabled(!next);
+      setObserverError(err instanceof Error ? err.message : "保存失败");
     } finally {
-      setSaving(false);
+      setObserverSaving(false);
     }
   };
+
+  const handleModeChange = async (next: InterviewInputMode) => {
+    if (next === inputMode) return;
+    const prev = inputMode;
+    setInputMode(next);
+    setModeError(null);
+    setModeSaving(true);
+    try {
+      await putAppSetting<InterviewInputMode>("interview_input_mode", next);
+    } catch (err) {
+      setInputMode(prev);
+      setModeError(err instanceof Error ? err.message : "保存失败");
+    } finally {
+      setModeSaving(false);
+    }
+  };
+
+  const voiceDisabledByBackend = asrAvailable === false;
 
   return (
     <section
       className="ds-card"
-      style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}
+      style={{ padding: 24, display: "flex", flexDirection: "column", gap: 18 }}
     >
       <header style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <h2
@@ -253,21 +312,115 @@ function InterviewExperienceSection(): JSX.Element {
         </p>
       </header>
 
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink-900)" }}>
+            面试语音模式
+          </span>
+          <span style={{ fontSize: 12, color: "var(--ink-500)", lineHeight: 1.6 }}>
+            语音模式下,按住「按住说话」即可录音,AI 会实时显示字幕并自动生成答案。
+            文字模式则沿用文本框输入。
+          </span>
+        </div>
+        <div
+          role="radiogroup"
+          aria-label="面试语音模式"
+          style={{
+            display: "inline-flex",
+            alignSelf: "flex-start",
+            padding: 3,
+            gap: 2,
+            borderRadius: "var(--r-pill)",
+            background: "var(--bg-sunken)",
+            border: "1px solid var(--line)",
+            opacity: modeHydrated && !modeSaving ? 1 : 0.7,
+          }}
+        >
+          {(["voice", "text"] as const).map((value) => {
+            const selected = inputMode === value;
+            const optionDisabled =
+              value === "voice" ? voiceDisabledByBackend : false;
+            const effectiveDisabled =
+              !modeHydrated || modeSaving || (optionDisabled && !selected);
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={effectiveDisabled}
+                onClick={() => {
+                  void handleModeChange(value);
+                }}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "var(--r-pill)",
+                  border: "none",
+                  background: selected ? "var(--bg-elev)" : "transparent",
+                  color: selected ? "var(--ink-900)" : "var(--ink-500)",
+                  fontSize: 12.5,
+                  fontWeight: selected ? 500 : 400,
+                  cursor: effectiveDisabled ? "not-allowed" : "pointer",
+                  boxShadow: selected ? "var(--shadow-xs)" : "none",
+                }}
+              >
+                {value === "voice" ? "语音" : "文字"}
+              </button>
+            );
+          })}
+        </div>
+
+        {voiceDisabledByBackend ? (
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--warn)",
+              background: "var(--warn-softer)",
+              border: "1px solid var(--warn)",
+              padding: "8px 12px",
+              borderRadius: "var(--r-sm)",
+              lineHeight: 1.6,
+            }}
+          >
+            ⚠️ 服务端未配置 Azure Speech,语音模式不可用。请参考 README 在
+            <span className="mono"> .env </span>中补上
+            <span className="mono"> AZURE_SPEECH_KEY </span>
+            和
+            <span className="mono"> AZURE_SPEECH_REGION </span>
+            后重启后端。
+          </div>
+        ) : null}
+
+        {modeError ? (
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--warn)",
+              background: "var(--warn-soft)",
+              padding: "8px 12px",
+              borderRadius: "var(--r-sm)",
+            }}
+          >
+            {modeError}
+          </div>
+        ) : null}
+      </div>
+
       <label
         style={{
           display: "flex",
           alignItems: "center",
           gap: 14,
           padding: "10px 0",
-          cursor: hydrated && !saving ? "pointer" : "not-allowed",
+          cursor: observerHydrated && !observerSaving ? "pointer" : "not-allowed",
         }}
       >
         <input
           type="checkbox"
           role="switch"
-          checked={enabled}
-          disabled={!hydrated || saving}
-          onChange={handleToggle}
+          checked={observerEnabled}
+          disabled={!observerHydrated || observerSaving}
+          onChange={handleObserverToggle}
           style={{ width: 18, height: 18, cursor: "inherit" }}
         />
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -280,7 +433,7 @@ function InterviewExperienceSection(): JSX.Element {
         </div>
       </label>
 
-      {error ? (
+      {observerError ? (
         <div
           style={{
             fontSize: 12,
@@ -290,7 +443,7 @@ function InterviewExperienceSection(): JSX.Element {
             borderRadius: "var(--r-sm)",
           }}
         >
-          {error}
+          {observerError}
         </div>
       ) : null}
     </section>

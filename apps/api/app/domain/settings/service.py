@@ -22,6 +22,7 @@ ALLOWED_KEYS: frozenset[str] = frozenset(
         "ui_theme",
         "last_selected_provider_hint",
         "observer_panel_enabled",
+        "interview_input_mode",
     }
 )
 

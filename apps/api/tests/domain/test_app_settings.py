@@ -102,6 +102,8 @@ async def test_set_accepts_clean_provider_hint(session: AsyncSession) -> None:
         ("last_selected_provider_hint", "openai"),
         ("observer_panel_enabled", True),
         ("observer_panel_enabled", False),
+        ("interview_input_mode", "voice"),
+        ("interview_input_mode", "text"),
     ],
 )
 async def test_whitelisted_keys_roundtrip(
