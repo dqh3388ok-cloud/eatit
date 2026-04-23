@@ -56,12 +56,22 @@ _USER_VARS: dict[str, dict] = {
         ],
         "long_term_summary": None,
     },
+    "meta_report": {
+        "session_count": 2,
+        "sessions_json": "[]",
+    },
+}
+
+
+# System templates that require variables (most agents don't).
+_SYSTEM_VARS: dict[str, dict] = {
+    "meta_report": {"session_count": 2},
 }
 
 
 @pytest.mark.parametrize("agent", AGENT_NAMES)
 def test_system_prompt_renders_and_includes_guardrails(agent: str) -> None:
-    rendered = render_prompt(agent, "system")
+    rendered = render_prompt(agent, "system", **_SYSTEM_VARS.get(agent, {}))
 
     assert rendered.strip(), f"{agent}/system.j2 rendered empty"
     # Shared guardrails banner should be embedded.

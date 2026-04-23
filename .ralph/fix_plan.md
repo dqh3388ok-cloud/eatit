@@ -8,7 +8,6 @@ section prefix.
 
 ## High Priority (work top-down)
 
-- [ ] P3.5A.1 MetaReportAgent — cross-session trend agent — see phase3.5-sections#P3.5A.1
 - [ ] P3.5A.2 MetaReport REST + storage — async pipeline + polling API — see phase3.5-sections#P3.5A.2
 - [ ] P3.5B.1 ObserverAgent — live coaching agent (≤ 60 char observations) — see phase3.5-sections#P3.5B.1
 - [ ] P3.5B.2 Orchestrator + WS observer wiring — server.coach.observation event — see phase3.5-sections#P3.5B.2
@@ -18,6 +17,7 @@ section prefix.
 
 ## Completed
 
+- [x] P3.5A.1 MetaReportAgent — cross-session trend agent (PENDING, 2026-04-24)
 - [x] P3.12 Test sweep + end-to-end smoke (85e0ff7, 2026-04-23)
 - [x] P3.10c InterviewPage + HistoryPage + ReportPage — XState + WS + report fields (a090aa7, 2026-04-23)
 - [x] P3.10b UploadPage + ConfigPage — real business bodies (fb0eff8, 2026-04-23)
