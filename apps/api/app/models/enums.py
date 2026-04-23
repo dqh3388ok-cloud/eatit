@@ -50,3 +50,9 @@ class InterviewReportStatus(StrEnum):
     GENERATING = "generating"
     READY = "ready"
     FAILED = "failed"
+
+
+class MetaReportStatus(StrEnum):
+    GENERATING = "generating"
+    READY = "ready"
+    FAILED = "failed"

@@ -1,6 +1,7 @@
 from app.models.app_setting import AppSetting
 from app.models.asset import CandidateAsset, ParseResult
 from app.models.base import Base
+from app.models.meta_report import MetaReport
 from app.models.report import InterviewReport
 from app.models.session import (
     CompressedTurnSummary,
@@ -22,6 +23,7 @@ __all__ = [
     "InterviewReport",
     "InterviewSession",
     "InterviewTurn",
+    "MetaReport",
     "ParseResult",
     "TurnAssessment",
     "User",
