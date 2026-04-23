@@ -45,9 +45,18 @@ class ReferenceAnswerReadyEvent:
     common_pitfalls: tuple[str, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class ObserverObservationEvent:
+    turn_index: int
+    observation: str
+    tone: str
+    actionable: bool
+
+
 OrchestratorEvent = (
     TurnAssessedEvent
     | TurnCompressedEvent
     | QuestionGeneratedEvent
     | ReferenceAnswerReadyEvent
+    | ObserverObservationEvent
 )

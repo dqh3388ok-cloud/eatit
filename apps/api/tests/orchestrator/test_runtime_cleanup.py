@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import gc
 import weakref
 
@@ -61,3 +62,26 @@ async def test_run_turn_after_close_raises(config: LLMConfig) -> None:
             answer="A",
             framework_json="{}",
         )
+
+
+async def test_on_session_end_cancels_and_joins_observer_tasks(config: LLMConfig) -> None:
+    runtime = SessionRuntime(session_id="session-observer-cleanup", llm_config=config)
+
+    blocker = asyncio.Event()
+
+    async def _forever() -> None:
+        try:
+            await blocker.wait()
+        except asyncio.CancelledError:
+            raise
+
+    # Simulate an in-flight observer task stuck waiting on upstream.
+    observer_task = asyncio.create_task(_forever())
+    runtime._observer_tasks.add(observer_task)
+    observer_task.add_done_callback(runtime._observer_tasks.discard)
+
+    await runtime.on_session_end()
+
+    assert observer_task.cancelled() or observer_task.done()
+    assert runtime._observer_tasks == set()
+    assert runtime._observed_turns == set()

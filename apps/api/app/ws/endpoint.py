@@ -29,6 +29,7 @@ from app.api.dependencies.auth import get_websocket_user
 from app.infra.db.session import AsyncSessionFactory
 from app.models.session import DirectionFramework, InterviewSession
 from app.orchestrator.events import (
+    ObserverObservationEvent,
     QuestionGeneratedEvent,
     ReferenceAnswerReadyEvent,
     TurnAssessedEvent,
@@ -278,6 +279,16 @@ def _serialize_event(event: object) -> dict[str, Any]:
                 "ideal_answer": event.ideal_answer,
                 "key_evaluation_points": list(event.key_evaluation_points),
                 "common_pitfalls": list(event.common_pitfalls),
+            },
+        }
+    if isinstance(event, ObserverObservationEvent):
+        return {
+            "event": "server.coach.observation",
+            "payload": {
+                "turn_index": event.turn_index,
+                "observation": event.observation,
+                "tone": event.tone,
+                "actionable": event.actionable,
             },
         }
     return {

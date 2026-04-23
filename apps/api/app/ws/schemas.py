@@ -104,6 +104,18 @@ class ServerReferenceReadyEvent(SchemaModel):
     payload: ReferenceAnswer
 
 
+class CoachObservation(SchemaModel):
+    turn_index: int
+    observation: str
+    tone: Literal["support", "alert", "pivot"]
+    actionable: bool
+
+
+class ServerCoachObservationEvent(SchemaModel):
+    event: Literal["server.coach.observation"]
+    payload: CoachObservation
+
+
 class ServerSessionEndedEvent(SchemaModel):
     event: Literal["server.session.ended"]
     payload: dict[str, str | UUID]
@@ -123,6 +135,7 @@ ServerEvent = Annotated[
     | ServerTurnCompressedEvent
     | ServerQuestionGeneratedEvent
     | ServerReferenceReadyEvent
+    | ServerCoachObservationEvent
     | ServerSessionEndedEvent
     | ServerErrorEvent,
     Field(discriminator="event"),

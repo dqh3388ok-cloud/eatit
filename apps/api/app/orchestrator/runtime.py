@@ -27,11 +27,14 @@ from typing import Any
 
 from app.agents.interviewer.schemas import InterviewerAgentInput
 from app.agents.interviewer.service import InterviewerAgentService
+from app.agents.observer.schemas import ObserverAgentInput
+from app.agents.observer.service import ObserverAgentService
 from app.agents.reference.schemas import ReferenceAgentInput
 from app.agents.reference.service import ReferenceAgentService
 from app.infra.llm import LLMGateway, build_gateway
 from app.infra.llm.config import LLMConfig
 from app.orchestrator.events import (
+    ObserverObservationEvent,
     QuestionGeneratedEvent,
     ReferenceAnswerReadyEvent,
     TurnAssessedEvent,
@@ -39,6 +42,9 @@ from app.orchestrator.events import (
 )
 from app.orchestrator.state import TurnState
 from app.orchestrator.turn_graph import build_turn_graph
+
+
+_OBSERVER_TIMEOUT_SECONDS = 4.0
 
 
 class SessionClosedError(RuntimeError):
@@ -54,6 +60,8 @@ class SessionRuntime:
         self._task_group: asyncio.TaskGroup | None = None
         self._event_queue: asyncio.Queue = asyncio.Queue()
         self._ref_answer_tasks: set[asyncio.Task] = set()
+        self._observer_tasks: set[asyncio.Task] = set()
+        self._observed_turns: set[int] = set()
         self._closed = False
 
     async def __aenter__(self) -> "SessionRuntime":
@@ -144,7 +152,62 @@ class SessionRuntime:
         self._ref_answer_tasks.add(ref_task)
         ref_task.add_done_callback(self._ref_answer_tasks.discard)
 
+        # Observer coaching is also fire-and-forget and must never delay the
+        # turn loop. At most one observation per turn_index — a client that
+        # re-sends `turn.end` for the same index shouldn't trigger a duplicate.
+        if turn_index not in self._observed_turns:
+            self._observed_turns.add(turn_index)
+            observer_task = asyncio.create_task(
+                self._run_observer(
+                    turn_index=turn_index,
+                    question=question,
+                    answer=answer,
+                    remaining_minutes=remaining_minutes,
+                    long_term_summary=previous_summary,
+                )
+            )
+            self._observer_tasks.add(observer_task)
+            observer_task.add_done_callback(self._observer_tasks.discard)
+
         return final_state
+
+    async def _run_observer(
+        self,
+        *,
+        turn_index: int,
+        question: str,
+        answer: str,
+        remaining_minutes: int | None,
+        long_term_summary: str | None,
+    ) -> None:
+        if self._gateway is None:
+            return
+        try:
+            result = await asyncio.wait_for(
+                ObserverAgentService().run(
+                    ObserverAgentInput(
+                        turn_index=turn_index,
+                        question=question,
+                        answer=answer,
+                        remaining_minutes=remaining_minutes,
+                        long_term_summary=long_term_summary,
+                    ),
+                    self._gateway,
+                ),
+                timeout=_OBSERVER_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            # Observer is advisory; a broken observer must never break the
+            # interview. Includes asyncio.TimeoutError + any LLMError.
+            return
+        await self._event_queue.put(
+            ObserverObservationEvent(
+                turn_index=turn_index,
+                observation=result.observation,
+                tone=result.tone,
+                actionable=result.actionable,
+            )
+        )
 
     async def _run_reference_answer(self, turn_index: int, question: str, answer: str) -> None:
         if self._gateway is None:
@@ -212,6 +275,16 @@ class SessionRuntime:
             except (asyncio.CancelledError, Exception):
                 pass
         self._ref_answer_tasks.clear()
+
+        for task in list(self._observer_tasks):
+            task.cancel()
+        for task in list(self._observer_tasks):
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
+        self._observer_tasks.clear()
+        self._observed_turns.clear()
 
         while not self._event_queue.empty():
             try:
