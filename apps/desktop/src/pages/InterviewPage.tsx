@@ -10,6 +10,8 @@ import { API_BASE_URL } from "@/api/client";
 import { getAppSetting } from "@/api/appSettings";
 import { fetchASRHealth } from "@/api/asr";
 import { loadLLMConfig, type LLMConfig } from "@/lib/llm/config";
+import { useConnectivityStore } from "@/stores/connectivity-store";
+import { pushToast } from "@/stores/toast-store";
 import {
   createAudioRecorder,
   requestMicPermission,
@@ -21,6 +23,8 @@ import { VoiceControl } from "@/pages/interview/VoiceControl";
 import { interviewMachine } from "@/statecharts/interview-machine";
 
 const OBSERVER_BREAKPOINT_PX = 1100;
+const MAX_RECONNECT_ATTEMPTS = 3;
+const RECONNECT_BACKOFF_MS = 1000;
 
 type InputMode = "voice" | "text";
 
@@ -42,6 +46,10 @@ export function InterviewPage(): JSX.Element {
   const socketRef = useRef<WebSocket | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<AudioRecorderHandle | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const [reconnectNonce, setReconnectNonce] = useState(0);
+  const setConnectivity = useConnectivityStore((s) => s.set);
   const [configLoading, setConfigLoading] = useState(true);
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>("voice");
@@ -149,11 +157,14 @@ export function InterviewPage(): JSX.Element {
 
     send({ type: "CONNECT", sessionId });
 
+    let closedByCleanup = false;
     const url = `${toWs(API_BASE_URL)}/ws/sessions/${sessionId}?token=mock`;
     const socket = new WebSocket(url);
     socketRef.current = socket;
 
     socket.onopen = () => {
+      reconnectAttemptsRef.current = 0;
+      setConnectivity("online");
       // First frame must be client.session.init — see phase3-constraints A2.
       const initFrame: ClientTextEvent = {
         event: "client.session.init",
@@ -205,14 +216,49 @@ export function InterviewPage(): JSX.Element {
     };
 
     socket.onerror = () => {
-      send({ type: "WS_ERROR", message: "WebSocket 连接异常" });
+      // onerror fires before onclose; defer user-facing messaging to the
+      // close handler so we only surface one narrative per outage.
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
       socketRef.current = null;
+      if (closedByCleanup) return;
+      // Graceful end (session.end or 1000) = no reconnect.
+      if (event.code === 1000 || state.matches("ended")) {
+        setConnectivity("online");
+        return;
+      }
+      const nextAttempt = reconnectAttemptsRef.current + 1;
+      if (nextAttempt > MAX_RECONNECT_ATTEMPTS) {
+        setConnectivity(
+          "offline",
+          `已尝试重连 ${MAX_RECONNECT_ATTEMPTS} 次仍未成功`,
+        );
+        pushToast({
+          tone: "error",
+          title: "WebSocket 连接中断",
+          message: `已尝试重连 ${MAX_RECONNECT_ATTEMPTS} 次仍未成功,请稍后刷新页面重试。`,
+          ttlMs: 0,
+        });
+        send({ type: "WS_ERROR", message: "连接中断,请刷新页面。" });
+        return;
+      }
+      reconnectAttemptsRef.current = nextAttempt;
+      setConnectivity(
+        "reconnecting",
+        `连接断开,正在第 ${nextAttempt} / ${MAX_RECONNECT_ATTEMPTS} 次重连`,
+      );
+      reconnectTimerRef.current = window.setTimeout(() => {
+        setReconnectNonce((n) => n + 1);
+      }, RECONNECT_BACKOFF_MS * nextAttempt);
     };
 
     return () => {
+      closedByCleanup = true;
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       try {
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ event: "client.session.end" }));
@@ -220,10 +266,10 @@ export function InterviewPage(): JSX.Element {
       } catch {
         /* socket already closed */
       }
-      socket.close();
+      socket.close(1000, "client cleanup");
       socketRef.current = null;
     };
-  }, [sessionId, configLoading, llmConfig, send]);
+  }, [sessionId, configLoading, llmConfig, send, reconnectNonce, state, setConnectivity]);
 
   useEffect(() => {
     if (state.matches("ended") && sessionId) {

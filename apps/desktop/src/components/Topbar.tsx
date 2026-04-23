@@ -1,4 +1,8 @@
 import { useLocation } from "react-router-dom";
+import {
+  useConnectivityStore,
+  type ConnectivityState,
+} from "@/stores/connectivity-store";
 
 const ROUTE_CRUMBS: Record<string, string[]> = {
   "/": ["首页"],
@@ -30,6 +34,8 @@ function resolveCrumbs(pathname: string): string[] {
 export function Topbar(): JSX.Element {
   const { pathname } = useLocation();
   const crumbs = resolveCrumbs(pathname);
+  const connectivityState = useConnectivityStore((s) => s.state);
+  const connectivityDetail = useConnectivityStore((s) => s.detail);
 
   return (
     <header
@@ -54,6 +60,8 @@ export function Topbar(): JSX.Element {
           display: "flex",
           alignItems: "center",
           gap: 8,
+          flex: 1,
+          minWidth: 0,
         }}
       >
         {crumbs.map((c, i) => (
@@ -70,6 +78,48 @@ export function Topbar(): JSX.Element {
           </span>
         ))}
       </div>
+      <ConnectivityDot state={connectivityState} detail={connectivityDetail} />
     </header>
+  );
+}
+
+function ConnectivityDot({
+  state,
+  detail,
+}: {
+  state: ConnectivityState;
+  detail: string | null;
+}): JSX.Element {
+  const palette =
+    state === "online"
+      ? { color: "var(--brand)", label: "在线" }
+      : state === "reconnecting"
+        ? { color: "var(--warn)", label: "重连中" }
+        : { color: "var(--warn)", label: "离线" };
+
+  return (
+    <span
+      title={detail ?? palette.label}
+      aria-label={`连接状态:${palette.label}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontSize: 11.5,
+        color: "var(--ink-500)",
+      }}
+    >
+      <span
+        className={state === "reconnecting" ? "pulse-dot" : ""}
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: "50%",
+          background: palette.color,
+          display: "inline-block",
+        }}
+      />
+      {palette.label}
+    </span>
   );
 }
