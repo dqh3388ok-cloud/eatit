@@ -39,15 +39,21 @@ class ReportsService:
         llm_config: LLMConfig,
     ) -> TriggerReportResponse:
         interview_session = await self._get_owned_session(session, current_user, str(session_id))
+        # Capture the PK before any commit/rollback — after a rollback every
+        # attribute on `interview_session` is expired, and async lazy-load
+        # from a non-greenlet context would raise MissingGreenlet.
+        interview_session_pk = interview_session.id
         now = datetime.now(UTC)
 
         result = await session.execute(
-            select(InterviewReport).where(InterviewReport.interview_session_id == interview_session.id)
+            select(InterviewReport).where(
+                InterviewReport.interview_session_id == interview_session_pk
+            )
         )
         report = result.scalar_one_or_none()
         if report is None:
             report = InterviewReport(
-                interview_session_id=interview_session.id,
+                interview_session_id=interview_session_pk,
                 status=InterviewReportStatus.GENERATING,
                 requested_at=now,
                 generated_at=None,
@@ -65,14 +71,20 @@ class ReportsService:
             await session.commit()
         except IntegrityError:
             # Race: a concurrent POST /report for the same session inserted
-            # first. Rollback, re-fetch, and update the row that beat us.
+            # first. Rollback expires every attribute of the in-session
+            # objects, so we must re-select both rather than reuse the stale
+            # references.
             await session.rollback()
             result = await session.execute(
                 select(InterviewReport).where(
-                    InterviewReport.interview_session_id == interview_session.id
+                    InterviewReport.interview_session_id == interview_session_pk
                 )
             )
             report = result.scalar_one()
+            session_result = await session.execute(
+                select(InterviewSession).where(InterviewSession.id == interview_session_pk)
+            )
+            interview_session = session_result.scalar_one()
             if request.force_regenerate or report.status != InterviewReportStatus.GENERATING:
                 report.status = InterviewReportStatus.GENERATING
                 report.requested_at = now
@@ -81,14 +93,14 @@ class ReportsService:
             interview_session.status = InterviewSessionStatus.REPORT_GENERATING
             await session.commit()
         await task_queue.enqueue(
-            task_name=f"generate-report:{interview_session.id}",
+            task_name=f"generate-report:{interview_session_pk}",
             task_factory=lambda: self._generate_report_task(
-                interview_session.id, llm_config
+                interview_session_pk, llm_config
             ),
         )
 
         return TriggerReportResponse(
-            session_id=interview_session.id,
+            session_id=interview_session_pk,
             status=InterviewReportStatus.GENERATING,
             requested_at=now,
         )
@@ -176,7 +188,12 @@ class ReportsService:
             if interview_session is None:
                 return
 
-            framework_json = await self._load_agent_framework_json(session, interview_session.id)
+            # Capture PK up front — after a rollback, attribute access on
+            # `interview_session` triggers async lazy-load from a
+            # non-greenlet context (MissingGreenlet).
+            interview_session_pk = interview_session.id
+
+            framework_json = await self._load_agent_framework_json(session, interview_session_pk)
 
             agent_output = await ReportAgentService().run(
                 ReportAgentInput(
@@ -191,12 +208,14 @@ class ReportsService:
 
             now = datetime.now(UTC)
             result = await session.execute(
-                select(InterviewReport).where(InterviewReport.interview_session_id == interview_session.id)
+                select(InterviewReport).where(
+                    InterviewReport.interview_session_id == interview_session_pk
+                )
             )
             report = result.scalar_one_or_none()
             if report is None:
                 report = InterviewReport(
-                    interview_session_id=interview_session.id,
+                    interview_session_id=interview_session_pk,
                     status=InterviewReportStatus.READY,
                     requested_at=now,
                     generated_at=now,
@@ -215,15 +234,19 @@ class ReportsService:
                 await session.commit()
             except IntegrityError:
                 # Race: trigger_report's INSERT landed while we were preparing
-                # ours. Rollback, re-fetch, update the winner with the payload
-                # we just generated — we still want the READY result visible.
+                # ours. Re-fetch both rows (the expired proxies can't be
+                # reused) and apply the READY payload we already generated.
                 await session.rollback()
                 result = await session.execute(
                     select(InterviewReport).where(
-                        InterviewReport.interview_session_id == interview_session.id
+                        InterviewReport.interview_session_id == interview_session_pk
                     )
                 )
                 report = result.scalar_one()
+                session_result = await session.execute(
+                    select(InterviewSession).where(InterviewSession.id == interview_session_pk)
+                )
+                interview_session = session_result.scalar_one()
                 report.status = InterviewReportStatus.READY
                 report.generated_at = now
                 report.payload = payload.model_dump(mode="json")
