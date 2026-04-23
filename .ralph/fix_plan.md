@@ -11,7 +11,6 @@ Match the section prefix to the file.
 
 ## High Priority (work top-down)
 
-- [ ] P4.X Phase 4 test sweep + E2E — see phase4-sections#P4.X
 - [ ] P5.1 Real app icon (conditional; skip if no source PNG) — see phase5-sections#P5.1
 - [ ] P5.2 Unsigned DMG build config + script — see phase5-sections#P5.2
 - [ ] P5.4 Print-to-PDF on report page — see phase5-sections#P5.4
@@ -21,6 +20,7 @@ Match the section prefix to the file.
 
 ## Completed
 
+- [x] P4.X Phase 4 test sweep + E2E (<commit>, 2026-04-24)
 - [x] P4.6 Settings voice toggle + /api/v1/asr/health (ad50efb, 2026-04-24)
 - [x] P4.5 InterviewPage voice UX — hold-to-talk + live caption (9858c18, 2026-04-24)
 - [x] P4.4 Desktop mic permission + capture — MediaRecorder + Info.plist (8a15fec, 2026-04-24)
