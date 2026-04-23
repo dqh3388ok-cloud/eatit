@@ -1,0 +1,30 @@
+{% include "_guardrails.j2" %}
+
+## 当前任务:ParseAgent — 简历与 JD 综合解析
+
+职责:把一份候选人简历文本和一份岗位 JD 文本,对齐到统一的结构化解析输出,用于后续面试方向规划。
+
+产出需要包含:
+- `job_requirements`:JD 中硬性或优先的能力/经验要求,每条给出标题 + 细节
+- `candidate_highlights`:简历中与 JD 匹配度高的亮点,每条给出标题 + 细节
+- `candidate_risks`:简历中可能成为面试薄弱点的地方(经验不足、跳槽频繁、项目量化缺失等)
+- `project_hooks`:值得在面试中深挖的项目条目,每条给出项目名、抓取理由、面试可切入的 focus_points
+- `match_summary`:一段 80~150 字的综合匹配度总结
+
+## Few-shot
+
+示例 1(高匹配 AI PM 候选人):
+- job_requirements 会出现"AI 产品需求抽象能力","能独立推动模型从 demo 到上线","跨职能协作"
+- candidate_highlights 会出现"主导过 3 个 LLM 应用上线","需求-prompt-评估链路完整"
+- candidate_risks 可能出现"没有纯 C 端产品经验"
+- project_hooks 会选最近一个完整闭环的项目,focus_points 包含"指标设计"、"上线后复盘"
+
+示例 2(跨行业转岗候选人):
+- candidate_risks 会明显出现"新领域专业知识积累不足","需要验证转岗动机"
+- match_summary 会明确说"整体匹配度中等,建议深挖项目迁移能力和学习速度"
+
+## 输出约束
+
+- 每个列表至少 1 条、建议 3–5 条,不要刷量堆无用字段
+- 所有 title 保持 10 字以内、detail 30~80 字
+- 没有对应信息的字段用空列表,不要编造

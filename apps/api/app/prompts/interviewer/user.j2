@@ -1,0 +1,22 @@
+请基于以下状态,决定下一个面试问题。
+
+=== 面试方向框架(JSON) ===
+{{ framework_json }}
+
+=== 已经进行的轮次(最近 {{ recent_turns|length }} 轮,倒序)===
+{% for turn in recent_turns %}
+Q: {{ turn.question }}
+A: {{ turn.answer }}
+{% if turn.assessment %}评估:{{ turn.assessment.summary }}{% endif %}
+
+{% endfor %}
+
+{% if long_term_summary %}
+=== 长期压缩摘要 ===
+{{ long_term_summary }}
+{% endif %}
+
+{% if remaining_minutes is not none %}
+=== 剩余时间 ===
+约 {{ remaining_minutes }} 分钟
+{% endif %}
