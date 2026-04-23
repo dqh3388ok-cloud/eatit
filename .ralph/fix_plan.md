@@ -1,12 +1,20 @@
-# Eatit Phase 3 Fix Plan
+# Eatit Phase 3 / 3.5 Fix Plan
 
-Source of truth for what's left in Phase 3. Ralph picks the first
-unchecked item in "High Priority" each loop. Details for each item
-live in `.ralph/specs/phase3-sections.md` under the matching anchor.
+Source of truth for what's left. Ralph picks the first unchecked item
+in "High Priority" each loop. Phase 3 detail lives in
+`.ralph/specs/phase3-sections.md`; Phase 3.5 detail lives in
+`.ralph/specs/phase3.5-sections.md` — pick the file matching the
+section prefix.
 
 ## High Priority (work top-down)
 
-_(all Phase 3 High Priority items complete)_
+- [ ] P3.5A.1 MetaReportAgent — cross-session trend agent — see phase3.5-sections#P3.5A.1
+- [ ] P3.5A.2 MetaReport REST + storage — async pipeline + polling API — see phase3.5-sections#P3.5A.2
+- [ ] P3.5B.1 ObserverAgent — live coaching agent (≤ 60 char observations) — see phase3.5-sections#P3.5B.1
+- [ ] P3.5B.2 Orchestrator + WS observer wiring — server.coach.observation event — see phase3.5-sections#P3.5B.2
+- [ ] P3.5A.3 MetaReport frontend — list + detail page + history CTA — see phase3.5-sections#P3.5A.3
+- [ ] P3.5B.3 Interview observer sidebar — panel + settings toggle — see phase3.5-sections#P3.5B.3
+- [ ] P3.5X Test sweep + E2E — meta + observer smoke — see phase3.5-sections#P3.5.X
 
 ## Completed
 
