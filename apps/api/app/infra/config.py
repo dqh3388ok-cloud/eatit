@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     cache_dir: str | None = None
     storage_dir: str | None = None
     deepgram_api_key: str = ""
+    azure_speech_key: str = ""
+    azure_speech_region: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"

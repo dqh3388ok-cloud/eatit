@@ -29,6 +29,7 @@ dependencies = [
   "uuid-utils>=0.14.1,<1.0.0",
   "tenacity>=9.1.4",
   "pypdf>=6.10.2",
+  "azure-cognitiveservices-speech>=1.40.0,<2",
 ]
 
 [dependency-groups]
