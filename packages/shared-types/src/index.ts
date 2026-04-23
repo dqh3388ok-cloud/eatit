@@ -464,6 +464,18 @@ export type ServerReferenceReadyEvent = {
   };
 };
 
+export type ObserverTone = "support" | "alert" | "pivot";
+
+export type ServerCoachObservationEvent = {
+  event: "server.coach.observation";
+  payload: {
+    turn_index: number;
+    observation: string;
+    tone: ObserverTone;
+    actionable: boolean;
+  };
+};
+
 export type ServerSessionEndedEvent = {
   event: "server.session.ended";
   payload: {
@@ -486,5 +498,6 @@ export type ServerEvent =
   | ServerTurnCompressedEvent
   | ServerQuestionGeneratedEvent
   | ServerReferenceReadyEvent
+  | ServerCoachObservationEvent
   | ServerSessionEndedEvent
   | ServerErrorEvent;

@@ -16,12 +16,24 @@ export type TurnAssessmentSummary = {
   weaknesses: string[];
 };
 
+export type ObserverTone = "support" | "alert" | "pivot";
+
+export type ObserverEntry = {
+  id: string;
+  turn_index: number;
+  observation: string;
+  tone: ObserverTone;
+  actionable: boolean;
+  received_at: string;
+};
+
 export type InterviewContext = {
   sessionId: string | null;
   currentTurnIndex: number;
   currentQuestion: GeneratedQuestion | null;
   draftAnswer: string;
   lastAssessment: TurnAssessmentSummary | null;
+  observations: ObserverEntry[];
   error: string | null;
 };
 
@@ -32,8 +44,45 @@ export type InterviewEvent =
   | { type: "UPDATE_ANSWER"; value: string }
   | { type: "SUBMIT_ANSWER" }
   | { type: "SERVER_ASSESSED"; payload: TurnAssessmentSummary }
+  | {
+      type: "SERVER_OBSERVATION";
+      payload: {
+        turn_index: number;
+        observation: string;
+        tone: ObserverTone;
+        actionable: boolean;
+      };
+    }
   | { type: "END_SESSION" }
   | { type: "WS_ERROR"; message: string };
+
+function appendObservationToContext(
+  context: InterviewContext,
+  payload: {
+    turn_index: number;
+    observation: string;
+    tone: ObserverTone;
+    actionable: boolean;
+  },
+): ObserverEntry[] {
+  const entry: ObserverEntry = {
+    id: `${payload.turn_index}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    turn_index: payload.turn_index,
+    observation: payload.observation,
+    tone: payload.tone,
+    actionable: payload.actionable,
+    received_at: new Date().toISOString(),
+  };
+  // Newest first so the panel doesn't scroll the user's active card out of view.
+  return [entry, ...context.observations];
+}
+
+const appendObservation = assign<InterviewContext, InterviewEvent>({
+  observations: ({ context, event }) => {
+    if (event.type !== "SERVER_OBSERVATION") return context.observations;
+    return appendObservationToContext(context, event.payload);
+  },
+});
 
 /**
  * Lifecycle:
@@ -62,7 +111,13 @@ export const interviewMachine = createMachine({
     currentQuestion: null,
     draftAnswer: "",
     lastAssessment: null,
+    observations: [],
     error: null,
+  },
+  on: {
+    SERVER_OBSERVATION: {
+      actions: appendObservation,
+    },
   },
   states: {
     idle: {

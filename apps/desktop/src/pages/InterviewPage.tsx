@@ -7,8 +7,17 @@ import type {
   ServerEvent,
 } from "@eatit/shared-types";
 import { API_BASE_URL } from "@/api/client";
+import { getAppSetting } from "@/api/appSettings";
 import { loadLLMConfig, type LLMConfig } from "@/lib/llm/config";
+import { ObserverPanel } from "@/pages/interview/ObserverPanel";
 import { interviewMachine } from "@/statecharts/interview-machine";
+
+const OBSERVER_BREAKPOINT_PX = 1100;
+
+function getViewportWidth(): number {
+  if (typeof window === "undefined") return OBSERVER_BREAKPOINT_PX;
+  return window.innerWidth;
+}
 
 function toWs(baseUrl: string): string {
   return baseUrl.startsWith("https://")
@@ -23,6 +32,10 @@ export function InterviewPage(): JSX.Element {
   const socketRef = useRef<WebSocket | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
+  const [observerPanelEnabled, setObserverPanelEnabled] = useState(true);
+  const [observerCollapsed, setObserverCollapsed] = useState(
+    () => getViewportWidth() < OBSERVER_BREAKPOINT_PX,
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -39,6 +52,35 @@ export function InterviewPage(): JSX.Element {
     return () => {
       mounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getAppSetting<boolean>("observer_panel_enabled")
+      .then((value) => {
+        if (!mounted) return;
+        if (value === null || value === undefined) {
+          setObserverPanelEnabled(true);
+          return;
+        }
+        setObserverPanelEnabled(Boolean(value));
+      })
+      .catch(() => {
+        /* backend unavailable — default to on */
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    function onResize() {
+      if (getViewportWidth() < OBSERVER_BREAKPOINT_PX) {
+        setObserverCollapsed(true);
+      }
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   useEffect(() => {
@@ -76,6 +118,8 @@ export function InterviewPage(): JSX.Element {
           send({ type: "SERVER_QUESTION", payload: parsed.payload });
         } else if (parsed.event === "server.turn.assessed") {
           send({ type: "SERVER_ASSESSED", payload: parsed.payload });
+        } else if (parsed.event === "server.coach.observation") {
+          send({ type: "SERVER_OBSERVATION", payload: parsed.payload });
         } else if (parsed.event === "server.error") {
           send({ type: "WS_ERROR", message: `${parsed.code}: ${parsed.message}` });
         }
@@ -154,7 +198,8 @@ export function InterviewPage(): JSX.Element {
     );
   }
 
-  return (
+  const showObserverPanel = observerPanelEnabled;
+  const mainColumn = (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <header style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div className="eyebrow">04 · 实时面试</div>
@@ -317,6 +362,29 @@ export function InterviewPage(): JSX.Element {
           ) : null}
         </section>
       ) : null}
+    </div>
+  );
+
+  if (!showObserverPanel) {
+    return mainColumn;
+  }
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: observerCollapsed ? "1fr 36px" : "minmax(0, 1fr) 280px",
+        gap: 0,
+        alignItems: "stretch",
+        minHeight: "calc(100vh - 32px)",
+      }}
+    >
+      <div style={{ minWidth: 0, paddingRight: 20 }}>{mainColumn}</div>
+      <ObserverPanel
+        observations={state.context.observations}
+        collapsed={observerCollapsed}
+        onToggle={() => setObserverCollapsed((v) => !v)}
+      />
     </div>
   );
 }

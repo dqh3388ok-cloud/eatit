@@ -21,6 +21,7 @@ ALLOWED_KEYS: frozenset[str] = frozenset(
         "onboarding_completed_at",
         "ui_theme",
         "last_selected_provider_hint",
+        "observer_panel_enabled",
     }
 )
 

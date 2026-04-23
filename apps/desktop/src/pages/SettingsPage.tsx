@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getAppSetting, putAppSetting } from "@/api/appSettings";
 import { ProviderSelect } from "@/pages/settings/ProviderSelect";
 import { KeyInput } from "@/pages/settings/KeyInput";
 import { TestConnectionButton } from "@/pages/settings/TestConnectionButton";
@@ -190,7 +191,108 @@ export function SettingsPage(): JSX.Element {
         />
       </section>
 
+      <InterviewExperienceSection />
+
       <DataManagement />
     </div>
+  );
+}
+
+function InterviewExperienceSection(): JSX.Element {
+  const [enabled, setEnabled] = useState<boolean>(true);
+  const [hydrated, setHydrated] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    getAppSetting<boolean>("observer_panel_enabled")
+      .then((value) => {
+        if (!mounted) return;
+        setEnabled(value === null || value === undefined ? true : Boolean(value));
+      })
+      .catch(() => {
+        /* backend unavailable — default to on */
+      })
+      .finally(() => {
+        if (mounted) setHydrated(true);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleToggle = async () => {
+    const next = !enabled;
+    setEnabled(next);
+    setError(null);
+    setSaving(true);
+    try {
+      await putAppSetting<boolean>("observer_panel_enabled", next);
+    } catch (err) {
+      setEnabled(!next);
+      setError(err instanceof Error ? err.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section
+      className="ds-card"
+      style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}
+    >
+      <header style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <h2
+          style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--ink-900)" }}
+        >
+          面试体验
+        </h2>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--ink-500)" }}>
+          控制实时面试页的附加提示。这些开关只影响 UI,不改变面试评估本身。
+        </p>
+      </header>
+
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          padding: "10px 0",
+          cursor: hydrated && !saving ? "pointer" : "not-allowed",
+        }}
+      >
+        <input
+          type="checkbox"
+          role="switch"
+          checked={enabled}
+          disabled={!hydrated || saving}
+          onChange={handleToggle}
+          style={{ width: 18, height: 18, cursor: "inherit" }}
+        />
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink-900)" }}>
+            AI 观察侧栏
+          </span>
+          <span style={{ fontSize: 12, color: "var(--ink-500)", lineHeight: 1.6 }}>
+            每轮作答完,AI 会在右侧给一句 ≤ 60 字的轻量反馈。关掉则不显示侧栏。
+          </span>
+        </div>
+      </label>
+
+      {error ? (
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--warn)",
+            background: "var(--warn-soft)",
+            padding: "8px 12px",
+            borderRadius: "var(--r-sm)",
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
+    </section>
   );
 }

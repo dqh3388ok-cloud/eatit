@@ -92,3 +92,21 @@ async def test_set_accepts_clean_provider_hint(session: AsyncSession) -> None:
     await set_setting(session, "last_selected_provider_hint", "siliconflow")
 
     assert await get_setting(session, "last_selected_provider_hint") == "siliconflow"
+
+
+@pytest.mark.parametrize(
+    "key, value",
+    [
+        ("onboarding_completed_at", "2026-04-24T10:00:00+00:00"),
+        ("ui_theme", "dark"),
+        ("last_selected_provider_hint", "openai"),
+        ("observer_panel_enabled", True),
+        ("observer_panel_enabled", False),
+    ],
+)
+async def test_whitelisted_keys_roundtrip(
+    session: AsyncSession, key: str, value: object
+) -> None:
+    await set_setting(session, key, value)
+
+    assert await get_setting(session, key) == value
