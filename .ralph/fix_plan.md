@@ -12,7 +12,7 @@ _(all Phase 3.5 High Priority items complete)_
 
 ## Completed
 
-- [x] P3.5X Test sweep + E2E — meta + observer smoke (PENDING, 2026-04-24)
+- [x] P3.5X Test sweep + E2E — meta + observer smoke (a6782c8, 2026-04-24)
 - [x] P3.5B.3 Interview observer sidebar — panel + settings toggle (5bd383b, 2026-04-24)
 - [x] P3.5A.3 MetaReport frontend — list + detail page + history CTA (70061b5, 2026-04-24)
 - [x] P3.5B.2 Orchestrator + WS observer wiring — server.coach.observation event (adc6da3, 2026-04-24)
