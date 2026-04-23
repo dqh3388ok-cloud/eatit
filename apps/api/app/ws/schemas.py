@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import Field, TypeAdapter
@@ -13,11 +13,6 @@ from app.schemas.turns import (
     NormalizedUserAssessment,
     ReferenceAnswer,
 )
-
-
-class ClientAudioChunkEvent(SchemaModel):
-    event: Literal["client.audio.chunk"]
-    content_type: str | None = None
 
 
 class ClientSessionInitEvent(SchemaModel):
@@ -43,6 +38,22 @@ class ClientTurnEndEvent(SchemaModel):
     turn_index: int = Field(ge=0)
 
 
+class ClientAudioStartEvent(SchemaModel):
+    """Signals the beginning of a voice turn. The next binary frames up until
+    `client.audio.stop` are streamed to the ASR backend as opus/webm chunks."""
+
+    event: Literal["client.audio.start"]
+    turn_index: int = Field(ge=0)
+
+
+class ClientAudioStopEvent(SchemaModel):
+    """Signals the end of a voice turn. The backend flushes the ASR stream and
+    emits the final transcript as `server.transcript.final`."""
+
+    event: Literal["client.audio.stop"]
+    turn_index: int = Field(ge=0)
+
+
 class ClientSessionPauseEvent(SchemaModel):
     event: Literal["client.session.pause"]
 
@@ -59,29 +70,31 @@ ClientTextEvent = Annotated[
     ClientSessionInitEvent
     | ClientTurnStartEvent
     | ClientTurnEndEvent
+    | ClientAudioStartEvent
+    | ClientAudioStopEvent
     | ClientSessionPauseEvent
     | ClientSessionResumeEvent
     | ClientSessionEndEvent,
     Field(discriminator="event"),
 ]
 
-ClientEvent = Annotated[
-    ClientAudioChunkEvent | ClientTextEvent,
-    Field(discriminator="event"),
-]
 
 CLIENT_TEXT_EVENT_ADAPTER = TypeAdapter(ClientTextEvent)
-CLIENT_EVENT_ADAPTER = TypeAdapter(ClientEvent)
+
+
+class TranscriptPayload(SchemaModel):
+    turn_index: int
+    text: str
 
 
 class ServerTranscriptPartialEvent(SchemaModel):
     event: Literal["server.transcript.partial"]
-    payload: dict[str, str]
+    payload: TranscriptPayload
 
 
-class ServerTranscriptFinalizedEvent(SchemaModel):
-    event: Literal["server.transcript.finalized"]
-    payload: dict[str, str]
+class ServerTranscriptFinalEvent(SchemaModel):
+    event: Literal["server.transcript.final"]
+    payload: TranscriptPayload
 
 
 class ServerTurnAssessedEvent(SchemaModel):
@@ -130,7 +143,7 @@ class ServerErrorEvent(SchemaModel):
 
 ServerEvent = Annotated[
     ServerTranscriptPartialEvent
-    | ServerTranscriptFinalizedEvent
+    | ServerTranscriptFinalEvent
     | ServerTurnAssessedEvent
     | ServerTurnCompressedEvent
     | ServerQuestionGeneratedEvent

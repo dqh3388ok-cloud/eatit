@@ -23,7 +23,7 @@ exception cancels sibling tasks without leaking.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, Callable
 
 from app.agents.interviewer.schemas import InterviewerAgentInput
 from app.agents.interviewer.service import InterviewerAgentService
@@ -31,12 +31,15 @@ from app.agents.observer.schemas import ObserverAgentInput
 from app.agents.observer.service import ObserverAgentService
 from app.agents.reference.schemas import ReferenceAgentInput
 from app.agents.reference.service import ReferenceAgentService
+from app.infra.asr import ASRBackend
 from app.infra.llm import LLMGateway, build_gateway
 from app.infra.llm.config import LLMConfig
 from app.orchestrator.events import (
     ObserverObservationEvent,
     QuestionGeneratedEvent,
     ReferenceAnswerReadyEvent,
+    TranscriptFinalEvent,
+    TranscriptPartialEvent,
     TurnAssessedEvent,
     TurnCompressedEvent,
 )
@@ -51,6 +54,10 @@ class SessionClosedError(RuntimeError):
     """Raised when `run_turn` is called after `on_session_end`."""
 
 
+class AudioNotStartedError(RuntimeError):
+    """Raised when `push_audio` fires without an active ASR stream."""
+
+
 class SessionRuntime:
     def __init__(self, session_id: str, llm_config: LLMConfig) -> None:
         self.session_id = session_id
@@ -62,6 +69,9 @@ class SessionRuntime:
         self._ref_answer_tasks: set[asyncio.Task] = set()
         self._observer_tasks: set[asyncio.Task] = set()
         self._observed_turns: set[int] = set()
+        self._asr_backend: ASRBackend | None = None
+        self._current_audio_turn: int | None = None
+        self._last_final_by_turn: dict[int, str] = {}
         self._closed = False
 
     async def __aenter__(self) -> "SessionRuntime":
@@ -170,6 +180,71 @@ class SessionRuntime:
             observer_task.add_done_callback(self._observer_tasks.discard)
 
         return final_state
+
+    async def start_audio_turn(
+        self,
+        turn_index: int,
+        backend_factory: Callable[[], ASRBackend],
+    ) -> None:
+        """Open an ASR stream for this turn. Partial/final transcripts land on
+        `event_queue` as `TranscriptPartialEvent` / `TranscriptFinalEvent`."""
+        if self._closed:
+            raise SessionClosedError("SessionRuntime has been closed")
+        if self._asr_backend is not None:
+            # Defensive: the WS layer enforces this and emits the typed error
+            # first; runtime-level guard is just belt-and-braces.
+            raise AudioNotStartedError("an audio turn is already active")
+
+        backend = backend_factory()
+        loop = asyncio.get_running_loop()
+
+        def _on_partial(text: str) -> None:
+            loop.call_soon_threadsafe(
+                self._event_queue.put_nowait,
+                TranscriptPartialEvent(turn_index=turn_index, text=text),
+            )
+
+        def _on_final(text: str) -> None:
+            self._last_final_by_turn[turn_index] = text
+            loop.call_soon_threadsafe(
+                self._event_queue.put_nowait,
+                TranscriptFinalEvent(turn_index=turn_index, text=text),
+            )
+
+        backend.on_partial(_on_partial)
+        backend.on_final(_on_final)
+        await backend.start_stream()
+
+        self._asr_backend = backend
+        self._current_audio_turn = turn_index
+
+    async def push_audio(self, chunk: bytes) -> None:
+        if self._asr_backend is None:
+            raise AudioNotStartedError("push_audio requires an active ASR stream")
+        await self._asr_backend.push_audio(chunk)
+
+    async def stop_audio_turn(self) -> str:
+        """Close the current ASR stream and return the final transcript text
+        (empty string if no final landed). Always safe to call."""
+        backend = self._asr_backend
+        turn_index = self._current_audio_turn
+        self._asr_backend = None
+        self._current_audio_turn = None
+        if backend is None:
+            return ""
+        try:
+            await backend.stop_stream()
+        finally:
+            # Yield once so any `call_soon_threadsafe`-scheduled final event
+            # from the SDK's post-stop trailing Recognized can land on the
+            # queue before the caller drains.
+            await asyncio.sleep(0)
+        if turn_index is None:
+            return ""
+        return self._last_final_by_turn.get(turn_index, "")
+
+    def get_audio_answer(self, turn_index: int) -> str | None:
+        return self._last_final_by_turn.get(turn_index)
 
     async def _run_observer(
         self,
@@ -285,6 +360,16 @@ class SessionRuntime:
                 pass
         self._observer_tasks.clear()
         self._observed_turns.clear()
+
+        if self._asr_backend is not None:
+            try:
+                await self._asr_backend.stop_stream()
+            except Exception:
+                # Cleanup path — never let a flaky SDK block teardown.
+                pass
+        self._asr_backend = None
+        self._current_audio_turn = None
+        self._last_final_by_turn.clear()
 
         while not self._event_queue.empty():
             try:

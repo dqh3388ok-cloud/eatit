@@ -53,10 +53,24 @@ class ObserverObservationEvent:
     actionable: bool
 
 
+@dataclass(frozen=True, slots=True)
+class TranscriptPartialEvent:
+    turn_index: int
+    text: str
+
+
+@dataclass(frozen=True, slots=True)
+class TranscriptFinalEvent:
+    turn_index: int
+    text: str
+
+
 OrchestratorEvent = (
     TurnAssessedEvent
     | TurnCompressedEvent
     | QuestionGeneratedEvent
     | ReferenceAnswerReadyEvent
     | ObserverObservationEvent
+    | TranscriptPartialEvent
+    | TranscriptFinalEvent
 )

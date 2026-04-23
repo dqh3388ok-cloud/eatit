@@ -1,6 +1,6 @@
 """WebSocket endpoint for a single interview session.
 
-Protocol (phase3-constraints.md §A2):
+Protocol (phase3-constraints.md §A2, phase4-sections.md §P4.2):
 1. Client connects; the server accepts and validates the session owner.
 2. First text frame MUST be `client.session.init` carrying the BYOK
    LLMConfig. Any other first frame -> `server.error{code:"session_not_initialized"}`
@@ -8,17 +8,24 @@ Protocol (phase3-constraints.md §A2):
 3. Subsequent text frames drive the orchestrator:
    - `client.turn.end{question, answer, turn_index}` -> SessionRuntime.run_turn
      then drain the runtime's outbound event queue and forward to the client.
+   - `client.audio.start{turn_index}` -> allocate an ASR backend per turn and
+     route the next binary frames through it.
+   - `client.audio.stop{turn_index}` -> flush the ASR stream and drain the
+     trailing transcript event.
    - `client.session.end` -> close gracefully.
-4. On disconnect (clean or not) the runtime's `on_session_end()` runs
-   from a `finally` block so the LLMConfig is released regardless of
-   path.
+4. Binary frames are ASR audio chunks. They require an active `audio.start`
+   session; a binary frame in idle mode gets `server.error{code:"audio_not_started"}`
+   without closing the connection.
+5. On disconnect (clean or not) the runtime's `on_session_end()` runs
+   from a `finally` block so the LLMConfig and any open ASR stream are
+   released regardless of path.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import Any, Callable
 from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
@@ -26,12 +33,15 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.api.dependencies.auth import get_websocket_user
+from app.infra.asr import ASRBackend, ASRError, build_asr_backend
 from app.infra.db.session import AsyncSessionFactory
 from app.models.session import DirectionFramework, InterviewSession
 from app.orchestrator.events import (
     ObserverObservationEvent,
     QuestionGeneratedEvent,
     ReferenceAnswerReadyEvent,
+    TranscriptFinalEvent,
+    TranscriptPartialEvent,
     TurnAssessedEvent,
     TurnCompressedEvent,
 )
@@ -39,6 +49,8 @@ from app.orchestrator.runtime import SessionRuntime
 from app.ws.manager import socket_manager
 from app.ws.schemas import (
     CLIENT_TEXT_EVENT_ADAPTER,
+    ClientAudioStartEvent,
+    ClientAudioStopEvent,
     ClientSessionEndEvent,
     ClientSessionInitEvent,
     ClientTurnEndEvent,
@@ -46,6 +58,16 @@ from app.ws.schemas import (
 
 
 router = APIRouter()
+
+
+def _default_asr_backend_factory() -> ASRBackend:
+    """Per-turn ASR backend. Thin wrapper around `build_asr_backend()` so
+    tests can monkeypatch this module-level binding with a mock factory
+    without reaching into `infra.asr`."""
+    return build_asr_backend()
+
+
+asr_backend_factory: Callable[[], ASRBackend] = _default_asr_backend_factory
 
 
 @router.websocket("/ws/sessions/{session_id}")
@@ -116,18 +138,24 @@ async def interview_socket(websocket: WebSocket, session_id: UUID) -> None:
         await _drain_queue(websocket, runtime)
 
         # --- Main loop ---
+        current_audio_turn: int | None = None
+
         while True:
             message = await websocket.receive()
             if message["type"] == "websocket.disconnect":
                 break
 
             if "bytes" in message and message["bytes"] is not None:
-                await socket_manager.send_error(
-                    websocket,
-                    code="audio_unsupported",
-                    message="Binary audio frames are reserved for ASR integration in a later phase.",
-                    recoverable=True,
-                )
+                if current_audio_turn is None:
+                    await socket_manager.send_error(
+                        websocket,
+                        code="audio_not_started",
+                        message="Send client.audio.start before binary audio chunks.",
+                        recoverable=True,
+                    )
+                    continue
+                await runtime.push_audio(message["bytes"])
+                await _drain_queue(websocket, runtime)
                 continue
 
             text = message.get("text")
@@ -158,6 +186,37 @@ async def interview_socket(websocket: WebSocket, session_id: UUID) -> None:
                     answer=parsed.answer,
                     framework_json=framework_json,
                 )
+                await _drain_queue(websocket, runtime)
+                continue
+
+            if isinstance(parsed, ClientAudioStartEvent):
+                if current_audio_turn is not None:
+                    await socket_manager.send_error(
+                        websocket,
+                        code="audio_already_started",
+                        message="An audio turn is already in progress.",
+                        recoverable=True,
+                    )
+                    continue
+                try:
+                    await runtime.start_audio_turn(parsed.turn_index, asr_backend_factory)
+                except ASRError as exc:
+                    await socket_manager.send_error(
+                        websocket,
+                        code="asr_unavailable",
+                        message=str(exc),
+                        recoverable=True,
+                    )
+                    continue
+                current_audio_turn = parsed.turn_index
+                await _drain_queue(websocket, runtime)
+                continue
+
+            if isinstance(parsed, ClientAudioStopEvent):
+                if current_audio_turn is None:
+                    continue
+                await runtime.stop_audio_turn()
+                current_audio_turn = None
                 await _drain_queue(websocket, runtime)
                 continue
 
@@ -290,6 +349,16 @@ def _serialize_event(event: object) -> dict[str, Any]:
                 "tone": event.tone,
                 "actionable": event.actionable,
             },
+        }
+    if isinstance(event, TranscriptPartialEvent):
+        return {
+            "event": "server.transcript.partial",
+            "payload": {"turn_index": event.turn_index, "text": event.text},
+        }
+    if isinstance(event, TranscriptFinalEvent):
+        return {
+            "event": "server.transcript.final",
+            "payload": {"turn_index": event.turn_index, "text": event.text},
         }
     return {
         "event": "server.error",

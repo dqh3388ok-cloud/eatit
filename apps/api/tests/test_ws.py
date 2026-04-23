@@ -178,12 +178,11 @@ def test_websocket_accepts_session_init_then_turn(monkeypatch) -> None:
     assert "server.question.generated" in event_names
 
 
-def test_websocket_binary_event_after_init(monkeypatch) -> None:
-    """Binary mid-session frames still get `not_implemented` (unchanged)."""
+def _patch_bootstrap(monkeypatch) -> None:
+    """Stub the InterviewerAgent so session.init returns a bootstrap question
+    without calling LiteLLM."""
     from app.agents.interviewer.schemas import InterviewerAgentOutput
     from app.agents.interviewer.service import InterviewerAgentService
-
-    _patch_ws_deps(monkeypatch)
 
     async def fake_interviewer_run(_self, _input, _gateway):
         return InterviewerAgentOutput(
@@ -194,6 +193,50 @@ def test_websocket_binary_event_after_init(monkeypatch) -> None:
 
     monkeypatch.setattr(InterviewerAgentService, "run", fake_interviewer_run)
 
+
+class _FakeAsrBackend:
+    """Synchronous stand-in for ASRBackend used by the WS tests.
+
+    Records pushed chunks and, on `stop_stream`, synchronously fires the final
+    callback — simulating Azure's trailing `Recognized` event without the
+    real SDK. Runtime's registered callback uses `loop.call_soon_threadsafe`
+    so the enqueued final event lands on the event queue during the
+    `await asyncio.sleep(0)` inside `stop_audio_turn`.
+    """
+
+    def __init__(self, final_text: str = "mock-transcript") -> None:
+        self.pushed_chunks: list[bytes] = []
+        self._partial_callbacks: list = []
+        self._final_callbacks: list = []
+        self._final_text = final_text
+        self.started = False
+        self.stopped = False
+
+    def on_partial(self, callback) -> None:
+        self._partial_callbacks.append(callback)
+
+    def on_final(self, callback) -> None:
+        self._final_callbacks.append(callback)
+
+    async def start_stream(self) -> None:
+        self.started = True
+
+    async def push_audio(self, chunk: bytes) -> None:
+        self.pushed_chunks.append(chunk)
+
+    async def stop_stream(self) -> None:
+        self.stopped = True
+        text = self._final_text if self.pushed_chunks else ""
+        for cb in self._final_callbacks:
+            cb(text)
+
+
+def test_websocket_binary_frame_without_audio_start_errors_and_continues(monkeypatch) -> None:
+    """Binary frames before `client.audio.start` get `audio_not_started` and
+    the connection stays open for a subsequent turn.end."""
+    _patch_ws_deps(monkeypatch)
+    _patch_bootstrap(monkeypatch)
+
     with TestClient(app) as client:
         with client.websocket_connect(
             "/ws/sessions/01964b52-1a8d-7b10-8d75-f0d4c7f00020?token=mock"
@@ -201,17 +244,144 @@ def test_websocket_binary_event_after_init(monkeypatch) -> None:
             websocket.send_json(
                 {"event": "client.session.init", "config": _VALID_CONFIG_PAYLOAD}
             )
-            # Drain the bootstrap question Ralph now sends on init so we can
-            # isolate the binary-frame response below.
             bootstrap = websocket.receive_json()
             assert bootstrap["event"] == "server.question.generated"
 
-            websocket.send_bytes(b"audio-chunk")
+            websocket.send_bytes(b"orphan-audio-chunk")
             response = websocket.receive_json()
+
+            websocket.send_json({"event": "client.session.end"})
 
     assert response == {
         "event": "server.error",
-        "code": "audio_unsupported",
-        "message": "Binary audio frames are reserved for ASR integration in a later phase.",
+        "code": "audio_not_started",
+        "message": "Send client.audio.start before binary audio chunks.",
         "recoverable": True,
     }
+
+
+def test_websocket_audio_start_chunks_stop_emits_final(monkeypatch) -> None:
+    """Happy audio path: audio.start → 2 binary chunks → audio.stop →
+    server.transcript.final with mock text."""
+    from app.ws import endpoint as ws_endpoint
+
+    _patch_ws_deps(monkeypatch)
+    _patch_bootstrap(monkeypatch)
+
+    backends: list[_FakeAsrBackend] = []
+
+    def _fake_factory() -> _FakeAsrBackend:
+        backend = _FakeAsrBackend(final_text="你好世界")
+        backends.append(backend)
+        return backend
+
+    monkeypatch.setattr(ws_endpoint, "asr_backend_factory", _fake_factory)
+
+    with TestClient(app) as client:
+        with client.websocket_connect(
+            "/ws/sessions/01964b52-1a8d-7b10-8d75-f0d4c7f00020?token=mock"
+        ) as websocket:
+            websocket.send_json(
+                {"event": "client.session.init", "config": _VALID_CONFIG_PAYLOAD}
+            )
+            bootstrap = websocket.receive_json()
+            assert bootstrap["event"] == "server.question.generated"
+
+            websocket.send_json({"event": "client.audio.start", "turn_index": 1})
+            websocket.send_bytes(b"chunk-1")
+            websocket.send_bytes(b"chunk-2")
+            websocket.send_json({"event": "client.audio.stop", "turn_index": 1})
+
+            final_event = websocket.receive_json()
+
+            websocket.send_json({"event": "client.session.end"})
+
+    assert len(backends) == 1
+    assert backends[0].pushed_chunks == [b"chunk-1", b"chunk-2"]
+    assert backends[0].stopped is True
+    assert final_event == {
+        "event": "server.transcript.final",
+        "payload": {"turn_index": 1, "text": "你好世界"},
+    }
+
+
+def test_websocket_audio_start_stop_without_chunks_emits_empty_final(monkeypatch) -> None:
+    """audio.start → audio.stop with no chunks in between must not crash;
+    the final transcript is the empty string."""
+    from app.ws import endpoint as ws_endpoint
+
+    _patch_ws_deps(monkeypatch)
+    _patch_bootstrap(monkeypatch)
+
+    def _fake_factory() -> _FakeAsrBackend:
+        return _FakeAsrBackend(final_text="should-not-appear")
+
+    monkeypatch.setattr(ws_endpoint, "asr_backend_factory", _fake_factory)
+
+    with TestClient(app) as client:
+        with client.websocket_connect(
+            "/ws/sessions/01964b52-1a8d-7b10-8d75-f0d4c7f00020?token=mock"
+        ) as websocket:
+            websocket.send_json(
+                {"event": "client.session.init", "config": _VALID_CONFIG_PAYLOAD}
+            )
+            bootstrap = websocket.receive_json()
+            assert bootstrap["event"] == "server.question.generated"
+
+            websocket.send_json({"event": "client.audio.start", "turn_index": 1})
+            websocket.send_json({"event": "client.audio.stop", "turn_index": 1})
+
+            final_event = websocket.receive_json()
+
+            websocket.send_json({"event": "client.session.end"})
+
+    assert final_event == {
+        "event": "server.transcript.final",
+        "payload": {"turn_index": 1, "text": ""},
+    }
+
+
+def test_websocket_double_audio_start_emits_already_started(monkeypatch) -> None:
+    """A second `client.audio.start` without an intervening `audio.stop` is
+    rejected with `audio_already_started` and the first session is unaffected."""
+    from app.ws import endpoint as ws_endpoint
+
+    _patch_ws_deps(monkeypatch)
+    _patch_bootstrap(monkeypatch)
+
+    backends: list[_FakeAsrBackend] = []
+
+    def _fake_factory() -> _FakeAsrBackend:
+        backend = _FakeAsrBackend()
+        backends.append(backend)
+        return backend
+
+    monkeypatch.setattr(ws_endpoint, "asr_backend_factory", _fake_factory)
+
+    with TestClient(app) as client:
+        with client.websocket_connect(
+            "/ws/sessions/01964b52-1a8d-7b10-8d75-f0d4c7f00020?token=mock"
+        ) as websocket:
+            websocket.send_json(
+                {"event": "client.session.init", "config": _VALID_CONFIG_PAYLOAD}
+            )
+            bootstrap = websocket.receive_json()
+            assert bootstrap["event"] == "server.question.generated"
+
+            websocket.send_json({"event": "client.audio.start", "turn_index": 1})
+            websocket.send_json({"event": "client.audio.start", "turn_index": 1})
+
+            response = websocket.receive_json()
+
+            websocket.send_json({"event": "client.audio.stop", "turn_index": 1})
+            websocket.receive_json()  # drain the final emitted by audio.stop
+            websocket.send_json({"event": "client.session.end"})
+
+    assert response == {
+        "event": "server.error",
+        "code": "audio_already_started",
+        "message": "An audio turn is already in progress.",
+        "recoverable": True,
+    }
+    # The second start never reached the factory — only one backend was built.
+    assert len(backends) == 1
