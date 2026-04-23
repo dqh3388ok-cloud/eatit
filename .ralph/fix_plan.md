@@ -1,14 +1,29 @@
-# Eatit Phase 3 / 3.5 Fix Plan
+# Eatit Phase 3 / 3.5 / 4 / 5 Fix Plan
 
 Source of truth for what's left. Ralph picks the first unchecked item
-in "High Priority" each loop. Phase 3 detail lives in
-`.ralph/specs/phase3-sections.md`; Phase 3.5 detail lives in
-`.ralph/specs/phase3.5-sections.md` — pick the file matching the
-section prefix.
+in "High Priority" each loop. Section specs live in:
+- `.ralph/specs/phase3-sections.md`
+- `.ralph/specs/phase3.5-sections.md`
+- `.ralph/specs/phase4-sections.md`
+- `.ralph/specs/phase5-sections.md`
+
+Match the section prefix to the file.
 
 ## High Priority (work top-down)
 
-_(all Phase 3.5 High Priority items complete)_
+- [ ] P4.1 ASR infra — Azure Speech SDK + abstraction + mock backend — see phase4-sections#P4.1
+- [ ] P4.2 WS audio protocol — binary frames + transcript events — see phase4-sections#P4.2
+- [ ] P4.3 Runtime audio pipeline — streaming audio → ASR → turn answer — see phase4-sections#P4.3
+- [ ] P4.4 Desktop mic permission + capture — MediaRecorder + Info.plist — see phase4-sections#P4.4
+- [ ] P4.5 InterviewPage voice UX — hold-to-talk + live caption — see phase4-sections#P4.5
+- [ ] P4.6 Settings voice toggle + /api/v1/asr/health — see phase4-sections#P4.6
+- [ ] P4.X Phase 4 test sweep + E2E — see phase4-sections#P4.X
+- [ ] P5.1 Real app icon (conditional; skip if no source PNG) — see phase5-sections#P5.1
+- [ ] P5.2 Unsigned DMG build config + script — see phase5-sections#P5.2
+- [ ] P5.4 Print-to-PDF on report page — see phase5-sections#P5.4
+- [ ] P5.5 Sentry scaffold with secret redaction — see phase5-sections#P5.5
+- [ ] P5.6 Error boundaries + WS reconnect + friendly toasts — see phase5-sections#P5.6
+- [ ] P5.X Phase 5 test sweep + tauri build dry run — see phase5-sections#P5.X
 
 ## Completed
 
