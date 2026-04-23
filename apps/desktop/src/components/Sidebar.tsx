@@ -1,5 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { FileText, History, Mic, Settings, Sliders } from "lucide-react";
+import {
+  FileText,
+  History,
+  Mic,
+  Settings,
+  Sliders,
+  TrendingUp,
+} from "lucide-react";
 
 const FLOW = [
   { to: "/upload", label: "上传与解析", Icon: FileText },
@@ -10,6 +17,7 @@ const FLOW = [
 const DATA = [
   { to: "/history", label: "面试记录", Icon: History },
   { to: "/report", label: "评估报告", Icon: FileText },
+  { to: "/meta-reports", label: "综合分析", Icon: TrendingUp },
 ];
 
 export function Sidebar(): JSX.Element {

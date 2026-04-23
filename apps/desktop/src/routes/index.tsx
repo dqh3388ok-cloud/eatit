@@ -5,6 +5,8 @@ import { ConfigPage } from "@/pages/ConfigPage";
 import { HistoryPage } from "@/pages/HistoryPage";
 import { HomePage } from "@/pages/HomePage";
 import { InterviewPage } from "@/pages/InterviewPage";
+import { MetaReportListPage } from "@/pages/MetaReportListPage";
+import { MetaReportPage } from "@/pages/MetaReportPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { ReportPage } from "@/pages/ReportPage";
 import { SettingsPage } from "@/pages/SettingsPage";
@@ -24,6 +26,8 @@ export function AppRoutes(): JSX.Element {
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/report" element={<ReportPage />} />
           <Route path="/report/:sessionId" element={<ReportPage />} />
+          <Route path="/meta-reports" element={<MetaReportListPage />} />
+          <Route path="/meta-report/:id" element={<MetaReportPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -278,6 +278,86 @@ export type ReportStatusResponse = {
   has_payload: boolean;
 };
 
+export type MetaReportStatus = "generating" | "ready" | "failed";
+
+export type MetaReportVerdict = "weak" | "mixed" | "solid" | "strong";
+
+export type RecurringWeakness = {
+  aspect: string;
+  occurrence_count: number;
+  session_ids: string[];
+  evidence_quotes: string[];
+};
+
+export type ImprovementSignal = {
+  aspect: string;
+  from_verdict: MetaReportVerdict;
+  to_verdict: MetaReportVerdict;
+  earlier_session_id: string;
+  later_session_id: string;
+};
+
+export type PassProbabilityPoint = {
+  session_id: string;
+  session_created_at: string;
+  pass_probability: number;
+};
+
+export type NextFocusArea = {
+  aspect: string;
+  reason: string;
+  suggested_prep: string;
+};
+
+export type MetaReportPayload = {
+  overall_trend_summary: string;
+  recurring_weaknesses: RecurringWeakness[];
+  improvement_signals: ImprovementSignal[];
+  pass_probability_series: PassProbabilityPoint[];
+  next_focus_areas: NextFocusArea[];
+};
+
+export type TriggerMetaReportRequest = {
+  session_ids?: string[] | null;
+};
+
+export type TriggerMetaReportResponse = {
+  id: string;
+  task_id: string;
+  status: MetaReportStatus;
+  covered_session_ids: string[];
+  created_at: string;
+};
+
+export type MetaReportFailurePayload = {
+  detail: string;
+};
+
+export type MetaReportDetailResponse = {
+  id: string;
+  user_id: string;
+  status: MetaReportStatus;
+  covered_session_ids: string[];
+  payload: MetaReportPayload | MetaReportFailurePayload | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MetaReportListItem = {
+  id: string;
+  status: MetaReportStatus;
+  covered_session_ids: string[];
+  session_count: number;
+  created_at: string;
+};
+
+export type MetaReportListResponse = {
+  items: MetaReportListItem[];
+  page: number;
+  page_size: number;
+  total: number;
+};
+
 export type ClientAudioChunkEvent = {
   event: "client.audio.chunk";
   content_type?: string | null;
