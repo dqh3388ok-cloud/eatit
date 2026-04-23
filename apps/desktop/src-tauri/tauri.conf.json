@@ -24,7 +24,11 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "icon": []
+    "targets": ["dmg", "app"],
+    "icon": [],
+    "category": "Productivity",
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    }
   }
 }

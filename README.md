@@ -82,6 +82,23 @@ Eatit is a monorepo for a resume + JD driven AI mock interview product. The curr
    cd apps/desktop && corepack pnpm tauri dev
    ```
 
+## 构建未签名 DMG
+
+本地打一个未签名的 macOS 安装包用于自测或小范围分发:
+
+```bash
+rustup target add aarch64-apple-darwin   # 仅第一次需要
+scripts/build-unsigned-dmg.sh
+```
+
+脚本封装了 `corepack pnpm build:dmg`(等价于 `tauri build --target aarch64-apple-darwin --bundles dmg`),完整 release 构建冷启动 10 分钟量级。产物路径:
+
+```
+apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/Eatit_0.1.0_aarch64.dmg
+```
+
+> ⚠️ 此 DMG 未经 Apple 代码签名与公证。**第一次打开需要在 访达 中右键 → 打开**,或到 系统设置 > 隐私与安全性 中手动放行。代码签名与 notarization 是后续迭代(Phase 5 P5.3)的事。
+
 ## Optional Compatibility Debugging
 
 If you explicitly need to inspect legacy containerized behavior, you can start the optional stack:
