@@ -23,6 +23,7 @@ ALLOWED_KEYS: frozenset[str] = frozenset(
         "last_selected_provider_hint",
         "observer_panel_enabled",
         "interview_input_mode",
+        "interviewer_tts_enabled",
     }
 )
 

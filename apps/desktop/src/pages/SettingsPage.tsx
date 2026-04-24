@@ -207,6 +207,11 @@ function InterviewExperienceSection(): JSX.Element {
   const [observerSaving, setObserverSaving] = useState(false);
   const [observerError, setObserverError] = useState<string | null>(null);
 
+  const [ttsEnabled, setTtsEnabled] = useState<boolean>(true);
+  const [ttsHydrated, setTtsHydrated] = useState(false);
+  const [ttsSaving, setTtsSaving] = useState(false);
+  const [ttsError, setTtsError] = useState<string | null>(null);
+
   const [inputMode, setInputMode] = useState<InterviewInputMode>("voice");
   const [modeHydrated, setModeHydrated] = useState(false);
   const [modeSaving, setModeSaving] = useState(false);
@@ -225,6 +230,24 @@ function InterviewExperienceSection(): JSX.Element {
       })
       .finally(() => {
         if (mounted) setObserverHydrated(true);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    getAppSetting<boolean>("interviewer_tts_enabled")
+      .then((value) => {
+        if (!mounted) return;
+        setTtsEnabled(value === null || value === undefined ? true : Boolean(value));
+      })
+      .catch(() => {
+        /* backend unavailable — default to on */
+      })
+      .finally(() => {
+        if (mounted) setTtsHydrated(true);
       });
     return () => {
       mounted = false;
@@ -275,6 +298,21 @@ function InterviewExperienceSection(): JSX.Element {
       setObserverError(err instanceof Error ? err.message : "保存失败");
     } finally {
       setObserverSaving(false);
+    }
+  };
+
+  const handleTtsToggle = async () => {
+    const next = !ttsEnabled;
+    setTtsEnabled(next);
+    setTtsError(null);
+    setTtsSaving(true);
+    try {
+      await putAppSetting<boolean>("interviewer_tts_enabled", next);
+    } catch (err) {
+      setTtsEnabled(!next);
+      setTtsError(err instanceof Error ? err.message : "保存失败");
+    } finally {
+      setTtsSaving(false);
     }
   };
 
@@ -405,6 +443,47 @@ function InterviewExperienceSection(): JSX.Element {
           </div>
         ) : null}
       </div>
+
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          padding: "10px 0",
+          cursor: ttsHydrated && !ttsSaving ? "pointer" : "not-allowed",
+        }}
+      >
+        <input
+          type="checkbox"
+          role="switch"
+          checked={ttsEnabled}
+          disabled={!ttsHydrated || ttsSaving}
+          onChange={handleTtsToggle}
+          style={{ width: 18, height: 18, cursor: "inherit" }}
+        />
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink-900)" }}>
+            面试官语音播报
+          </span>
+          <span style={{ fontSize: 12, color: "var(--ink-500)", lineHeight: 1.6 }}>
+            新问题出现时用系统中文语音朗读,增强临场感。开始录音会自动停止朗读。
+          </span>
+        </div>
+      </label>
+
+      {ttsError ? (
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--warn)",
+            background: "var(--warn-soft)",
+            padding: "8px 12px",
+            borderRadius: "var(--r-sm)",
+          }}
+        >
+          {ttsError}
+        </div>
+      ) : null}
 
       <label
         style={{

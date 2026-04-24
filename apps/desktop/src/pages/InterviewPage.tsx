@@ -17,6 +17,7 @@ import {
   requestMicPermission,
   type AudioRecorderHandle,
 } from "@/lib/mic";
+import { speakInterviewerLine, stopInterviewerLine } from "@/lib/tts";
 import { LiveCaption } from "@/pages/interview/LiveCaption";
 import { ObserverPanel } from "@/pages/interview/ObserverPanel";
 import { VoiceControl } from "@/pages/interview/VoiceControl";
@@ -59,6 +60,7 @@ export function InterviewPage(): JSX.Element {
     | null
   >(null);
   const [observerPanelEnabled, setObserverPanelEnabled] = useState(true);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const [observerCollapsed, setObserverCollapsed] = useState(
     () => getViewportWidth() < OBSERVER_BREAKPOINT_PX,
   );
@@ -113,6 +115,21 @@ export function InterviewPage(): JSX.Element {
 
   useEffect(() => {
     let mounted = true;
+    getAppSetting<boolean>("interviewer_tts_enabled")
+      .then((value) => {
+        if (!mounted) return;
+        setTtsEnabled(value === null || value === undefined ? true : Boolean(value));
+      })
+      .catch(() => {
+        /* backend unavailable — default to on */
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
     getAppSetting<InputMode>("interview_input_mode")
       .then((value) => {
         if (!mounted) return;
@@ -125,6 +142,21 @@ export function InterviewPage(): JSX.Element {
       mounted = false;
     };
   }, []);
+
+  // Speak each new interviewer line once, keyed by turn_index so a stale
+  // re-render of the same question doesn't replay. `stopInterviewerLine`
+  // on cleanup handles navigation away / component unmount / user starting
+  // to record (handleVoiceStart calls it explicitly too, belt-and-braces).
+  const currentQuestionText = state.context.currentQuestion?.question;
+  const currentTurnIndex = state.context.currentQuestion?.turn_index;
+  useEffect(() => {
+    if (!ttsEnabled) return;
+    if (!currentQuestionText) return;
+    speakInterviewerLine(currentQuestionText);
+    return () => {
+      stopInterviewerLine();
+    };
+  }, [ttsEnabled, currentQuestionText, currentTurnIndex]);
 
   useEffect(() => {
     let mounted = true;
@@ -318,6 +350,9 @@ export function InterviewPage(): JSX.Element {
     const question = state.context.currentQuestion;
     if (!question) return;
     if (state.context.isRecording) return;
+    // Cut the interviewer mid-sentence so the user's own voice isn't
+    // mixed with the playback through the mic feedback loop.
+    stopInterviewerLine();
     setVoiceError(null);
 
     let stream = micStreamRef.current;
