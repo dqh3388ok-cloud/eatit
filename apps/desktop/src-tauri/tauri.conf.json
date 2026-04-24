@@ -32,7 +32,8 @@
       "resources/backend": "resources/backend"
     },
     "macOS": {
-      "minimumSystemVersion": "12.0"
+      "minimumSystemVersion": "12.0",
+      "signingIdentity": "-"
     }
   }
 }
