@@ -71,7 +71,7 @@ export function OfflineBanner(): JSX.Element | null {
     >
       <WifiOff size={14} />
       {browserOnline
-        ? "无法连接本地后端服务,请确认 uvicorn 是否启动。"
+        ? "无法连接本地后端服务,请尝试重新启动 Eatit。"
         : "设备当前离线,后台请求将暂停。"}
     </div>
   );
