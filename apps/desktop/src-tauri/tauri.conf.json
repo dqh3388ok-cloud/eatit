@@ -28,6 +28,9 @@
     "targets": ["dmg", "app"],
     "icon": [],
     "category": "Productivity",
+    "resources": {
+      "resources/backend": "resources/backend"
+    },
     "macOS": {
       "minimumSystemVersion": "12.0"
     }

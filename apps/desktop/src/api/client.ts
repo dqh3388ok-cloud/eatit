@@ -2,12 +2,41 @@ import axios, { AxiosError } from "axios";
 import { encodeForHeader, loadLLMConfig } from "@/lib/llm/config";
 import { pushToast } from "@/stores/toast-store";
 
-export const API_BASE_URL = "http://localhost:8000";
+/**
+ * Base URL of the local backend. Starts as the dev fallback `:8000`
+ * (matches `uv run uvicorn` defaults) and gets rewritten by
+ * `initBackendUrl()` at app boot once the Tauri host reports the
+ * actual port chosen by the bundled backend subprocess. `let` gives us
+ * ES-module live bindings so importers of `API_BASE_URL` see the
+ * updated value automatically after init completes.
+ */
+export let API_BASE_URL = "http://127.0.0.1:8000";
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30_000,
 });
+
+/**
+ * Ask the Tauri host for the backend port and rewrite API_BASE_URL +
+ * apiClient's defaults. Called from main.tsx before React renders so
+ * every subsequent request uses the right URL. Failures (running in a
+ * browser without Tauri, backend not ready, etc.) are swallowed; the
+ * fallback `:8000` is a reasonable guess for dev mode where the user
+ * ran `uv run uvicorn` separately.
+ */
+export async function initBackendUrl(): Promise<void> {
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const port = await invoke<number>("get_backend_port");
+    if (typeof port === "number" && port > 0 && port < 65536) {
+      API_BASE_URL = `http://127.0.0.1:${port}`;
+      apiClient.defaults.baseURL = API_BASE_URL;
+    }
+  } catch {
+    /* not running under Tauri, or backend not ready — keep fallback */
+  }
+}
 
 /**
  * Per-request opt-out flag. Call sites that want to render their own
