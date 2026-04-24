@@ -70,6 +70,16 @@ apiClient.interceptors.response.use(
     const requestId = body?.request_id;
     const code = body?.code;
 
+    // 409 is almost always "state conflict, retry later" — every real caller
+    // (report polling, async task status) handles it with a bespoke retry or
+    // progress indicator. A generic "数据冲突" toast on every poll tick is
+    // noise. Callers that WANT a toast can always re-throw / pushToast
+    // themselves. (Observed 2026-04-24: report page polling while
+    // ReportAgent was still generating surfaced a toast every 1.5s.)
+    if (status === 409) {
+      return Promise.reject(error);
+    }
+
     let title = "请求失败";
     let tone: "error" | "warn" = "error";
     if (!error.response) {
@@ -77,9 +87,6 @@ apiClient.interceptors.response.use(
       tone = "warn";
     } else if (status && status >= 500) {
       title = status === 502 ? "LLM 调用失败" : status === 503 ? "语音服务不可用" : "服务端错误";
-    } else if (status === 409) {
-      title = "数据冲突";
-      tone = "warn";
     } else if (status === 400) {
       title = "请求参数有误";
       tone = "warn";
