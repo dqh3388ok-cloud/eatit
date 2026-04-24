@@ -18,6 +18,14 @@
 
 set -euo pipefail
 
+# Ensure rustup's cargo/rustc are on PATH when the script is invoked from
+# a non-login shell (common when called from tauri's beforeBuildCommand
+# chain or from CI runners that don't source the user profile).
+if [[ -f "${HOME}/.cargo/env" ]]; then
+  # shellcheck disable=SC1091
+  source "${HOME}/.cargo/env"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DESKTOP_DIR="${REPO_ROOT}/apps/desktop"
