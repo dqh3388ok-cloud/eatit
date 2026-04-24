@@ -112,6 +112,13 @@ def _run_migrations() -> None:
     cfg.set_main_option(
         "version_locations", str(alembic_dir / "versions" / "mainline")
     )
+    # Alembic defaults to splitting version_locations on whitespace, which
+    # shreds paths like `/Volumes/Eatit 3/Eatit.app/Contents/Resources/...`
+    # into `/Volumes/Eatit` + `3/Eatit.app/...` and makes ScriptDirectory
+    # return zero heads, causing "Can't locate revision identified by X".
+    # `os` uses os.pathsep (":" on macOS/Linux) so spaces in the path are
+    # safe. Matches the alembic.ini setting for CLI parity.
+    cfg.set_main_option("version_path_separator", "os")
     cfg.set_main_option(
         "sqlalchemy.url", resolve_database_url(settings.database_url, settings.app_env)
     )
