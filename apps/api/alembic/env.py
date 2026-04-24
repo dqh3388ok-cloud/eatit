@@ -18,7 +18,9 @@ if config.config_file_name is not None:
 
 settings = get_settings()
 mainline_versions_path = Path(__file__).resolve().parent / "versions" / "mainline"
-config.set_main_option("sqlalchemy.url", resolve_database_url(settings.database_url))
+config.set_main_option(
+    "sqlalchemy.url", resolve_database_url(settings.database_url, settings.app_env)
+)
 config.set_main_option("version_locations", str(mainline_versions_path))
 
 target_metadata = Base.metadata

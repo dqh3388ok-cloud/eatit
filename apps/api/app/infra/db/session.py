@@ -11,7 +11,7 @@ from app.infra.config import get_settings, resolve_database_url
 
 
 settings = get_settings()
-database_url = resolve_database_url(settings.database_url)
+database_url = resolve_database_url(settings.database_url, settings.app_env)
 
 
 def _ensure_sqlite_parent_dir(url: URL) -> None:

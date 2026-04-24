@@ -8,6 +8,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[4]
 ROOT_ENV_PATH = Path(__file__).resolve().parents[4] / ".env"
 API_ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
 DEFAULT_DATABASE_URL = "sqlite+aiosqlite:///./.data/eatit.db"
+# In PyInstaller-frozen bundles, PROJECT_ROOT points inside the read-only
+# .app/Contents/Resources/resources/ tree, so resolving the dev default
+# under it would try to mkdir `.data/` next to the Resources folder and
+# crash with EROFS. Callers in production mode pass this instead.
+DEFAULT_PRODUCTION_DATABASE_URL = (
+    "sqlite+aiosqlite:///~/Library/Application Support/Eatit/eatit.db"
+)
 DEFAULT_DEVELOPMENT_CACHE_DIR = ".data/cache"
 DEFAULT_PRODUCTION_CACHE_DIR = "~/Library/Application Support/Eatit/cache"
 DEFAULT_DEVELOPMENT_STORAGE_DIR = ".data/storage"
@@ -46,12 +53,27 @@ def get_settings() -> Settings:
     return Settings()
 
 
-def resolve_database_url(database_url: str) -> str:
+def resolve_database_url(database_url: str, app_env: str = "development") -> str:
+    # A bundled build ships no .env, so Settings falls back to the
+    # code-level DEFAULT_DATABASE_URL which is a dev-relative path.
+    # Detect that exact inheritance and swap to the per-user data dir.
+    if database_url == DEFAULT_DATABASE_URL and app_env != "development":
+        database_url = DEFAULT_PRODUCTION_DATABASE_URL
+
     relative_prefix = "sqlite+aiosqlite:///./"
     if database_url.startswith(relative_prefix):
         relative_path = database_url.removeprefix(relative_prefix)
         resolved_path = (PROJECT_ROOT / relative_path).resolve()
         return f"sqlite+aiosqlite:///{resolved_path.as_posix()}"
+
+    # Expand `~` segments so the frozen path under Application Support works.
+    scheme_prefix = "sqlite+aiosqlite:///"
+    if database_url.startswith(scheme_prefix):
+        raw_path = database_url.removeprefix(scheme_prefix)
+        expanded = Path(raw_path).expanduser()
+        if expanded.is_absolute():
+            return f"{scheme_prefix}{expanded.as_posix()}"
+
     return database_url
 
 

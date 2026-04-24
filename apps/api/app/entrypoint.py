@@ -72,7 +72,7 @@ def _ensure_data_dirs() -> None:
     # way the async engine does.
     from app.infra.config import resolve_database_url
 
-    resolved = resolve_database_url(settings.database_url)
+    resolved = resolve_database_url(settings.database_url, settings.app_env)
     # sqlite+aiosqlite:///<abs path>
     if resolved.startswith("sqlite+aiosqlite:///"):
         db_path = Path(resolved.removeprefix("sqlite+aiosqlite:///"))
@@ -112,7 +112,9 @@ def _run_migrations() -> None:
     cfg.set_main_option(
         "version_locations", str(alembic_dir / "versions" / "mainline")
     )
-    cfg.set_main_option("sqlalchemy.url", resolve_database_url(settings.database_url))
+    cfg.set_main_option(
+        "sqlalchemy.url", resolve_database_url(settings.database_url, settings.app_env)
+    )
     command.upgrade(cfg, "head")
 
 
