@@ -26,9 +26,6 @@ export type CurrentConfig = {
 };
 
 type AppStore = {
-  apiBaseUrl: string;
-  setApiBaseUrl: (value: string) => void;
-
   upload: CurrentUpload;
   patchUpload: (patch: Partial<CurrentUpload>) => void;
   resetUpload: () => void;
@@ -55,9 +52,6 @@ const DEFAULT_CONFIG: CurrentConfig = {
 };
 
 export const useAppStore = create<AppStore>((set) => ({
-  apiBaseUrl: "http://localhost:8000",
-  setApiBaseUrl: (value) => set({ apiBaseUrl: value }),
-
   upload: { ...DEFAULT_UPLOAD },
   patchUpload: (patch) =>
     set((state) => ({ upload: { ...state.upload, ...patch } })),

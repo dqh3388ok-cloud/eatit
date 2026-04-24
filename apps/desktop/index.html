@@ -7,9 +7,43 @@
       content="width=device-width, initial-scale=1.0"
     />
     <title>Eatit Desktop</title>
+    <style>
+      /* Splash shown before React mounts. initBackendUrl() in main.tsx
+         blocks the first render for up to ~30s while the bundled backend
+         boots; without this the webview is a blank white rectangle on a
+         cold launch. React replaces #root on mount and the splash
+         vanishes with no cleanup needed. */
+      html, body { margin: 0; height: 100%; }
+      body { background: #fafaf7; color: #0f1310; font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+      .eatit-splash {
+        position: fixed; inset: 0;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 16px;
+      }
+      .eatit-splash-brand {
+        font-size: 28px; font-weight: 600;
+        letter-spacing: 0.5px; color: #1f6b3a;
+      }
+      .eatit-splash-hint { font-size: 13px; color: #6b7169; }
+      .eatit-splash-spinner {
+        width: 22px; height: 22px;
+        border: 2px solid #d8d9d1;
+        border-top-color: #1f6b3a;
+        border-radius: 50%;
+        animation: eatit-spin 0.8s linear infinite;
+      }
+      @keyframes eatit-spin { to { transform: rotate(360deg); } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="eatit-splash">
+        <div class="eatit-splash-brand">Eatit</div>
+        <div class="eatit-splash-spinner"></div>
+        <div class="eatit-splash-hint">正在启动本地服务...</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
