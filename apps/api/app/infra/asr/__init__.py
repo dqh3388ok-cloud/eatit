@@ -1,20 +1,18 @@
 """ASR infrastructure: pluggable speech-to-text backends.
 
-Phase 4 introduces real-time voice interviews. ASR (Automatic Speech Recognition)
-lives behind an abstraction so business code never touches vendor SDKs directly
-and so tests can swap in a mock backend without pulling vendor credentials.
+Phase 4 introduced real-time voice interviews; the initial plan used Azure
+Speech. The current backend is `faster-whisper` running on-device — zero
+API key, zero network during transcription, ~142MB model downloaded to
+`~/.cache/huggingface/` on first use.
 
-Key invariants (per Phase 3/4 constraints):
-- The secret is a `SecretStr`; retrieve only via `.get_secret_value()` at the
-  exact call site that hands it to the SDK.
-- Unlike `LLMConfig`, the ASR key is server-side `.env`, not BYOK-per-request —
-  the Azure SDK requires it at construction time and this is a single-machine
-  single-user desktop app.
-- Secret tokens are referenced only in this package's config / factory /
-  azure_backend modules; a meta-test enforces no leakage elsewhere.
+Key invariants (carried forward from Phase 3/4 constraints):
+- The backend interface is stable even though Whisper has no partial-
+  transcript support; `on_partial` callbacks simply never fire. Future
+  API-backed providers (with partials) plug in through the same contract.
+- Sentry / log redaction rules still include `azure_speech` / `subscription`
+  patterns so when we put an API provider back it's already covered.
 """
 
-from app.infra.asr.azure_backend import AzureASRBackend
 from app.infra.asr.base import ASRBackend
 from app.infra.asr.config import ASRConfig
 from app.infra.asr.errors import (
@@ -25,12 +23,13 @@ from app.infra.asr.errors import (
 )
 from app.infra.asr.factory import build_asr_backend
 from app.infra.asr.mock_backend import MockASRBackend
+from app.infra.asr.whisper_backend import WhisperASRBackend
 
 __all__ = [
     "ASRBackend",
     "ASRConfig",
-    "AzureASRBackend",
     "MockASRBackend",
+    "WhisperASRBackend",
     "build_asr_backend",
     "ASRError",
     "ASRAuthError",

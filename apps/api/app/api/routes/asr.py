@@ -1,18 +1,19 @@
 """ASR availability probe.
 
-`GET /api/v1/asr/health` lets the desktop app learn whether the backend has
-Azure Speech credentials configured, so the voice-mode UI can disable itself
-and fall back to textarea input when the server cannot actually do ASR.
+`GET /api/v1/asr/health` lets the desktop app learn whether the backend
+can do speech-to-text, so the voice-mode UI can disable itself and fall
+back to textarea input when the runtime isn't usable.
 
-No secret material is exposed — only a boolean + provider name.
+For the current on-device backend (faster-whisper) the probe is satisfied
+as long as the library is importable — no API keys, no network, no region
+selection involved. The response shape is preserved from the previous
+Azure-backed version so the desktop app doesn't need to fork on providers.
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-
-from app.infra.config import get_settings
 
 router = APIRouter(prefix="/asr", tags=["asr"])
 
@@ -24,6 +25,9 @@ class ASRHealthResponse(BaseModel):
 
 @router.get("/health", response_model=ASRHealthResponse)
 async def asr_health() -> ASRHealthResponse:
-    settings = get_settings()
-    available = bool(settings.azure_speech_key) and bool(settings.azure_speech_region)
-    return ASRHealthResponse(available=available, provider="azure")
+    try:
+        import faster_whisper  # noqa: F401
+        import av  # noqa: F401
+    except ImportError:
+        return ASRHealthResponse(available=False, provider="whisper")
+    return ASRHealthResponse(available=True, provider="whisper")
