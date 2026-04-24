@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Hardened-runtime + ad-hoc signing blocks AVFoundation from accessing the
+    microphone unless this entitlement is present. Wry's WKUIDelegate already
+    grants WebKit-level permission (see wry 0.54 wry_web_view_ui_delegate.rs),
+    so without this entitlement getUserMedia() silently fails with
+    NotAllowedError and the OS never shows the TCC prompt. Info.plist's
+    NSMicrophoneUsageDescription alone is insufficient under hardened runtime.
+  -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+
+  <!--
+    The bundled Python backend (PyInstaller onedir) loads many C extensions
+    (faster-whisper / ctranslate2 / pyav / onnxruntime). Under hardened
+    runtime the dynamic loader rejects unsigned dylibs by default.
+  -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+
+  <!--
+    V8/JavaScriptCore in WKWebView allocates executable pages at runtime.
+    Required whenever hardened runtime is on, which Tauri enables
+    automatically for release builds.
+  -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+</dict>
+</plist>
