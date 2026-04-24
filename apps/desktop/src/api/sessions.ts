@@ -44,6 +44,9 @@ export const generateReport = async (
   const response = await apiClient.post<TriggerReportResponse>(
     `/api/v1/sessions/${sessionId}/report`,
     request,
+    // ReportPage renders its own error UI (inline banner + retry affordance),
+    // so the generic axios toast would just duplicate and confuse users.
+    { skipErrorToast: true },
   );
   return response.data;
 };
@@ -53,6 +56,10 @@ export const getSessionReport = async (
 ): Promise<InterviewReportResponse> => {
   const response = await apiClient.get<InterviewReportResponse>(
     `/api/v1/sessions/${sessionId}/report`,
+    // 404 ("not yet generated") and 409 ("still generating") are normal
+    // polling states the caller handles explicitly — the global interceptor
+    // already skips 409 but 404 would otherwise spam "Report not found."
+    { skipErrorToast: true },
   );
   return response.data;
 };

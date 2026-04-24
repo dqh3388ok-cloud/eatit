@@ -40,7 +40,16 @@ export async function requestMicPermission(): Promise<MicPermissionResult> {
       return {
         ok: false,
         error: "denied",
-        message: "麦克风权限被拒绝。请到 系统设置 > 隐私与安全性 > 麦克风 授予 Eatit 权限。",
+        // Two real scenarios we have to cover with one message:
+        //   1) Eatit is already in System Settings > Privacy > Microphone
+        //      with the toggle OFF — user needs to flip it on.
+        //   2) Eatit is missing from that list entirely (TCC never saw a
+        //      request because a prior dev-build run denied under a
+        //      different ad-hoc identity, or user force-quit during the
+        //      first prompt). Restarting the packaged app usually triggers
+        //      a fresh prompt.
+        message:
+          "无法访问麦克风。请到 系统设置 > 隐私与安全性 > 麦克风 找到 Eatit 并打开开关;如果列表里没有 Eatit,请完全退出再重新打开 Eatit。",
       };
     }
     return {

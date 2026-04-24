@@ -54,7 +54,10 @@ export function InterviewPage(): JSX.Element {
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null);
   const [inputMode, setInputMode] = useState<InputMode>("voice");
   const [asrAvailable, setAsrAvailable] = useState<boolean | null>(null);
-  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [voiceError, setVoiceError] = useState<
+    | { message: string; kind: "mic_denied" | "other" }
+    | null
+  >(null);
   const [observerPanelEnabled, setObserverPanelEnabled] = useState(true);
   const [observerCollapsed, setObserverCollapsed] = useState(
     () => getViewportWidth() < OBSERVER_BREAKPOINT_PX,
@@ -144,9 +147,10 @@ export function InterviewPage(): JSX.Element {
     // still flip back manually once they fix the server env.
     if (asrAvailable === false && inputMode === "voice") {
       setInputMode("text");
-      setVoiceError(
-        "语音模式不可用:服务端未配置 Azure Speech。已切换到文字模式。",
-      );
+      setVoiceError({
+        kind: "other",
+        message: "语音模式不可用:服务端未配置 Azure Speech。已切换到文字模式。",
+      });
     }
   }, [asrAvailable, inputMode]);
 
@@ -211,9 +215,10 @@ export function InterviewPage(): JSX.Element {
             // answer; banner explains what happened.
             setAsrAvailable(false);
             setInputMode("text");
-            setVoiceError(
-              `语音模式不可用:${parsed.message || "服务端未配置 Azure Speech"}。已切换到文字模式。`,
-            );
+            setVoiceError({
+              kind: "other",
+              message: `语音模式不可用:${parsed.message || "服务端未配置 Azure Speech"}。已切换到文字模式。`,
+            });
             send({ type: "AUDIO_STOP" });
           } else {
             send({ type: "WS_ERROR", message: `${parsed.code}: ${parsed.message}` });
@@ -319,7 +324,10 @@ export function InterviewPage(): JSX.Element {
     if (!stream) {
       const result = await requestMicPermission();
       if (!result.ok) {
-        setVoiceError(result.message);
+        setVoiceError({
+          kind: result.error === "denied" ? "mic_denied" : "other",
+          message: result.message,
+        });
         return;
       }
       stream = result.stream;
@@ -328,7 +336,7 @@ export function InterviewPage(): JSX.Element {
 
     const socket = socketRef.current;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-      setVoiceError("WebSocket 尚未连接,无法开始录音");
+      setVoiceError({ kind: "other", message: "WebSocket 尚未连接,无法开始录音" });
       return;
     }
 
@@ -513,9 +521,37 @@ export function InterviewPage(): JSX.Element {
                   borderRadius: "var(--r-sm)",
                   background: "var(--warn-softer)",
                   border: "1px solid var(--warn)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
                 }}
               >
-                {voiceError}
+                <span>{voiceError.message}</span>
+                {voiceError.kind === "mic_denied" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // WKWebView delegates unknown URL schemes to macOS,
+                      // which opens the Privacy & Security > Microphone pane
+                      // directly. If Eatit appears in the list, user flips
+                      // the toggle; if it doesn't, they restart the app.
+                      window.location.href =
+                        "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
+                    }}
+                    style={{
+                      alignSelf: "flex-start",
+                      padding: "4px 10px",
+                      borderRadius: "var(--r-sm)",
+                      border: "1px solid var(--warn)",
+                      background: "var(--bg-elev)",
+                      color: "var(--warn)",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    打开系统设置
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </>
