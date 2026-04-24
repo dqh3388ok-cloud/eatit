@@ -60,6 +60,18 @@ export function InterviewPage(): JSX.Element {
     () => getViewportWidth() < OBSERVER_BREAKPOINT_PX,
   );
 
+  // The WebSocket effect reads `state` inside its onclose handler to decide
+  // whether to reconnect after the session ended normally. Putting `state`
+  // on the effect's dep list would tear down + rebuild the socket on every
+  // XState transition (including incoming question / assessment events),
+  // which is why we saw three WS connections open-then-close in the backend
+  // log. Stash the latest state on a ref instead so the effect reads fresh
+  // values without re-running.
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   useEffect(() => {
     let mounted = true;
     loadLLMConfig()
@@ -223,8 +235,10 @@ export function InterviewPage(): JSX.Element {
     socket.onclose = (event) => {
       socketRef.current = null;
       if (closedByCleanup) return;
-      // Graceful end (session.end or 1000) = no reconnect.
-      if (event.code === 1000 || state.matches("ended")) {
+      // Graceful end (session.end or 1000) = no reconnect. Read from the
+      // ref so this branch sees the latest machine state without pinning
+      // the effect to the state object.
+      if (event.code === 1000 || stateRef.current.matches("ended")) {
         setConnectivity("online");
         return;
       }
@@ -269,7 +283,10 @@ export function InterviewPage(): JSX.Element {
       socket.close(1000, "client cleanup");
       socketRef.current = null;
     };
-  }, [sessionId, configLoading, llmConfig, send, reconnectNonce, state, setConnectivity]);
+    // Intentionally omit `state` from the dep list — we read it via
+    // `stateRef` inside onclose. Including it would re-open the WS on
+    // every XState transition.
+  }, [sessionId, configLoading, llmConfig, send, reconnectNonce, setConnectivity]);
 
   useEffect(() => {
     if (state.matches("ended") && sessionId) {
