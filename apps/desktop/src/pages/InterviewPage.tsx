@@ -530,13 +530,20 @@ export function InterviewPage(): JSX.Element {
                 {voiceError.kind === "mic_denied" ? (
                   <button
                     type="button"
-                    onClick={() => {
-                      // WKWebView delegates unknown URL schemes to macOS,
-                      // which opens the Privacy & Security > Microphone pane
-                      // directly. If Eatit appears in the list, user flips
-                      // the toggle; if it doesn't, they restart the app.
-                      window.location.href =
-                        "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
+                    onClick={async () => {
+                      // WKWebView silently drops `location.href = "x-apple...:"`
+                      // because its navigation handler never forwards unknown
+                      // schemes to LaunchServices. The Rust `open_system_url`
+                      // command shells out to `/usr/bin/open`, which always
+                      // honours the handler registered for the scheme.
+                      try {
+                        const { invoke } = await import("@tauri-apps/api/core");
+                        await invoke("open_system_url", {
+                          url: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+                        });
+                      } catch {
+                        /* not running under Tauri (plain vite dev): no-op, user reads the text instead */
+                      }
                     }}
                     style={{
                       alignSelf: "flex-start",

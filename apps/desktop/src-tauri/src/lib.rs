@@ -8,6 +8,29 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! Welcome to Eatit.", name)
 }
 
+/// Open a macOS URL scheme via the `open` CLI.
+///
+/// WKWebView's default navigation handler drops unknown URL schemes on the
+/// floor (setting `window.location.href = "x-apple.systempreferences:..."`
+/// just silently no-ops), so the frontend can't jump to System Settings on
+/// its own. We shell out to `/usr/bin/open`, which always respects URL
+/// handlers registered with LaunchServices.
+///
+/// Tight allow-list: only `x-apple.systempreferences:` so a compromised
+/// frontend can't ask us to launch arbitrary schemes (`file://`,
+/// `javascript:`, etc).
+#[tauri::command]
+fn open_system_url(url: String) -> Result<(), String> {
+    if !url.starts_with("x-apple.systempreferences:") {
+        return Err("scheme not allowed".into());
+    }
+    std::process::Command::new("open")
+        .arg(&url)
+        .spawn()
+        .map_err(|e| format!("failed to spawn open: {e}"))?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
@@ -25,6 +48,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet,
+            open_system_url,
             backend::get_backend_port,
             llm_config::save_llm_config,
             llm_config::load_llm_config,
