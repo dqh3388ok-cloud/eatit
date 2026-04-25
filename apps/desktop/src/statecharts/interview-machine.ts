@@ -27,6 +27,14 @@ export type ObserverEntry = {
   received_at: string;
 };
 
+export type ReferenceAnswerHint = {
+  turn_index: number;
+  answer_outline: string[];
+  ideal_answer: string;
+  key_evaluation_points: string[];
+  common_pitfalls: string[];
+};
+
 export type InterviewContext = {
   sessionId: string | null;
   currentTurnIndex: number;
@@ -38,6 +46,11 @@ export type InterviewContext = {
   isRecording: boolean;
   partialTranscript: string;
   finalTranscript: string;
+  // Reference answer for the current turn. ReferenceAgent runs async after
+  // turn.end so this lags the question by a few seconds; resets to null on
+  // every new question. The payload carries its own turn_index so a late
+  // arrival from the previous turn can be filtered out.
+  referenceAnswer: ReferenceAnswerHint | null;
 };
 
 export type InterviewEvent =
@@ -56,6 +69,7 @@ export type InterviewEvent =
         actionable: boolean;
       };
     }
+  | { type: "SERVER_REFERENCE"; payload: ReferenceAnswerHint }
   | { type: "AUDIO_START" }
   | { type: "AUDIO_STOP" }
   | { type: "TRANSCRIPT_PARTIAL"; text: string }
@@ -123,10 +137,24 @@ export const interviewMachine = createMachine({
     isRecording: false,
     partialTranscript: "",
     finalTranscript: "",
+    referenceAnswer: null,
   },
   on: {
     SERVER_OBSERVATION: {
       actions: appendObservation,
+    },
+    SERVER_REFERENCE: {
+      actions: assign({
+        referenceAnswer: ({ context, event }) => {
+          if (event.type !== "SERVER_REFERENCE") return context.referenceAnswer;
+          // Drop late arrivals that don't match the active turn so a stale
+          // reference doesn't shadow the new question's hint.
+          if (event.payload.turn_index !== context.currentTurnIndex) {
+            return context.referenceAnswer;
+          }
+          return event.payload;
+        },
+      }),
     },
   },
   states: {
@@ -161,6 +189,7 @@ export const interviewMachine = createMachine({
             partialTranscript: "",
             finalTranscript: "",
             isRecording: false,
+            referenceAnswer: null,
           }),
         },
         END_SESSION: "ended",
@@ -220,6 +249,7 @@ export const interviewMachine = createMachine({
             partialTranscript: "",
             finalTranscript: "",
             isRecording: false,
+            referenceAnswer: null,
           }),
         },
         END_SESSION: "ended",
@@ -245,6 +275,7 @@ export const interviewMachine = createMachine({
               currentQuestion: ({ event }) => event.payload,
               currentTurnIndex: ({ event }) => event.payload.turn_index,
               draftAnswer: "",
+              referenceAnswer: null,
             }),
           },
         ],

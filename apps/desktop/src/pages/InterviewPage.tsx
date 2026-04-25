@@ -20,6 +20,7 @@ import {
 import { speakInterviewerLine, stopInterviewerLine } from "@/lib/tts";
 import { LiveCaption } from "@/pages/interview/LiveCaption";
 import { ObserverPanel } from "@/pages/interview/ObserverPanel";
+import { ReferencePanel } from "@/pages/interview/ReferencePanel";
 import { VoiceControl } from "@/pages/interview/VoiceControl";
 import { interviewMachine } from "@/statecharts/interview-machine";
 
@@ -236,6 +237,8 @@ export function InterviewPage(): JSX.Element {
           send({ type: "SERVER_ASSESSED", payload: parsed.payload });
         } else if (parsed.event === "server.coach.observation") {
           send({ type: "SERVER_OBSERVATION", payload: parsed.payload });
+        } else if (parsed.event === "server.reference.ready") {
+          send({ type: "SERVER_REFERENCE", payload: parsed.payload });
         } else if (parsed.event === "server.transcript.partial") {
           send({ type: "TRANSCRIPT_PARTIAL", text: parsed.payload.text });
         } else if (parsed.event === "server.transcript.final") {
@@ -667,6 +670,13 @@ export function InterviewPage(): JSX.Element {
           </button>
         </div>
       </section>
+
+      {state.context.currentQuestion ? (
+        <ReferencePanel
+          reference={state.context.referenceAnswer}
+          resetKey={state.context.currentTurnIndex}
+        />
+      ) : null}
 
       {state.context.lastAssessment ? (
         <section
