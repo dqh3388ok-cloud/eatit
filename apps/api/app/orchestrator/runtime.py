@@ -116,6 +116,7 @@ class SessionRuntime:
                 should_end=output.should_end,
             )
         )
+        self._kick_reference(0, output.question)
 
     async def run_turn(
         self,
@@ -155,13 +156,6 @@ class SessionRuntime:
         final_state = TurnState.model_validate(final_dict)
 
         await self._emit_turn_events(final_state)
-
-        # Reference answer is fire-and-forget — don't block the turn loop on it.
-        ref_task = asyncio.create_task(
-            self._run_reference_answer(turn_index, question, answer)
-        )
-        self._ref_answer_tasks.add(ref_task)
-        ref_task.add_done_callback(self._ref_answer_tasks.discard)
 
         # Observer coaching is also fire-and-forget and must never delay the
         # turn loop. At most one observation per turn_index — a client that
@@ -310,12 +304,18 @@ class SessionRuntime:
             )
         )
 
-    async def _run_reference_answer(self, turn_index: int, question: str, answer: str) -> None:
+    async def _run_reference_answer(
+        self, turn_index: int, question: str, answer: str | None = None
+    ) -> None:
         if self._gateway is None:
             return
         try:
             result = await ReferenceAgentService().run(
-                ReferenceAgentInput(question=question, candidate_answer=answer),
+                # answer is intentionally optional now: the UI wants the hint
+                # rendered alongside the question (before the user answers),
+                # so the agent should produce a "model answer" rather than
+                # a critique anchored on the candidate's reply.
+                ReferenceAgentInput(question=question, candidate_answer=answer or None),
                 self._gateway,
             )
         except Exception:
@@ -331,6 +331,16 @@ class SessionRuntime:
                 common_pitfalls=tuple(result.common_pitfalls),
             )
         )
+
+    def _kick_reference(self, turn_index: int, question: str) -> None:
+        """Fire-and-forget reference generation tied to a freshly-emitted
+        question. Tracked in `_ref_answer_tasks` so on_session_end can
+        cancel any pending generation when the user navigates away."""
+        if self._closed or self._gateway is None:
+            return
+        task = asyncio.create_task(self._run_reference_answer(turn_index, question))
+        self._ref_answer_tasks.add(task)
+        task.add_done_callback(self._ref_answer_tasks.discard)
 
     async def _emit_turn_events(self, state: TurnState) -> None:
         if state.assessment is not None:
@@ -352,9 +362,10 @@ class SessionRuntime:
             )
         if state.next_question is not None:
             nq = state.next_question
+            next_turn_index = state.turn_index + 1
             await self._event_queue.put(
                 QuestionGeneratedEvent(
-                    turn_index=state.turn_index + 1,
+                    turn_index=next_turn_index,
                     question=nq.question,
                     intent=nq.intent,
                     expected_depth=nq.expected_depth,
@@ -362,6 +373,11 @@ class SessionRuntime:
                     should_end=nq.should_end,
                 )
             )
+            # Reference for the upcoming question fires here, not after the
+            # answer comes in. The user wants a "model answer" hint while
+            # they're preparing their reply, not a post-mortem.
+            if not nq.should_end:
+                self._kick_reference(next_turn_index, nq.question)
 
     async def on_session_end(self) -> None:
         if self._closed:

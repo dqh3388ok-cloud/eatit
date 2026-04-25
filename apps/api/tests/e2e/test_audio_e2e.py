@@ -189,8 +189,13 @@ def test_voice_turn_round_trip_with_mock_asr_and_mock_llm(monkeypatch) -> None:
                 ws.send_bytes(b"opus-chunk-3")
                 ws.send_json({"event": "client.audio.stop", "turn_index": 1})
 
-                # 3) server.transcript.final.
-                transcript = ws.receive_json()
+                # 3) server.transcript.final. Reference for turn-0 is fired
+                # alongside the bootstrap question now and may land before
+                # the transcript, so skip past any reference frames first.
+                while True:
+                    transcript = ws.receive_json()
+                    if transcript["event"] != "server.reference.ready":
+                        break
                 assert transcript == {
                     "event": "server.transcript.final",
                     "payload": {"turn_index": 1, "text": audio_final_text},

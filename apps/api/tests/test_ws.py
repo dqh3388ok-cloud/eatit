@@ -166,8 +166,10 @@ def test_websocket_accepts_session_init_then_turn(monkeypatch) -> None:
                 }
             )
 
+            # Reference for the new question now also fires fire-and-forget,
+            # so widen the receive window past the 3 we used to expect.
             events: list[dict] = []
-            for _ in range(3):
+            for _ in range(5):
                 events.append(websocket.receive_json())
 
             websocket.send_json({"event": "client.session.end"})
