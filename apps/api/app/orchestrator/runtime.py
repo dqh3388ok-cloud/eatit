@@ -23,6 +23,7 @@ exception cancels sibling tasks without leaking.
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any, Callable
 
 from app.agents.interviewer.schemas import InterviewerAgentInput
@@ -34,6 +35,7 @@ from app.agents.reference.service import ReferenceAgentService
 from app.infra.asr import ASRBackend
 from app.infra.llm import LLMGateway, build_gateway
 from app.infra.llm.config import LLMConfig
+from app.infra.logging import get_logger
 from app.orchestrator.events import (
     ObserverObservationEvent,
     QuestionGeneratedEvent,
@@ -309,6 +311,9 @@ class SessionRuntime:
     ) -> None:
         if self._gateway is None:
             return
+        log = get_logger(__name__)
+        started_at = time.perf_counter()
+        log.info("eatit.reference.start", turn_index=turn_index)
         try:
             result = await ReferenceAgentService().run(
                 # answer is intentionally optional now: the UI wants the hint
@@ -318,9 +323,18 @@ class SessionRuntime:
                 ReferenceAgentInput(question=question, candidate_answer=answer or None),
                 self._gateway,
             )
-        except Exception:
-            # Reference is advisory; swallow rather than surface as a turn error.
-            # WS layer can emit a typed error from its own monitor loop if desired.
+        except Exception as exc:
+            # Reference is advisory: don't surface as a turn-level error to
+            # the candidate, but DO log the cause so we can diagnose silent
+            # "AI 正在准备本轮参考答案" hangs. Most common culprits: provider
+            # 429, schema validation retries exhausted, network timeout.
+            log.warning(
+                "eatit.reference.failed",
+                turn_index=turn_index,
+                error_type=type(exc).__name__,
+                error=str(exc),
+                elapsed_ms=int((time.perf_counter() - started_at) * 1000),
+            )
             return
         await self._event_queue.put(
             ReferenceAnswerReadyEvent(
@@ -331,6 +345,11 @@ class SessionRuntime:
                 common_pitfalls=tuple(result.common_pitfalls),
             )
         )
+        log.info(
+            "eatit.reference.ready",
+            turn_index=turn_index,
+            elapsed_ms=int((time.perf_counter() - started_at) * 1000),
+        )
 
     def _kick_reference(self, turn_index: int, question: str) -> None:
         """Fire-and-forget reference generation tied to a freshly-emitted
@@ -338,6 +357,7 @@ class SessionRuntime:
         cancel any pending generation when the user navigates away."""
         if self._closed or self._gateway is None:
             return
+        get_logger(__name__).info("eatit.reference.kicked", turn_index=turn_index)
         task = asyncio.create_task(self._run_reference_answer(turn_index, question))
         self._ref_answer_tasks.add(task)
         task.add_done_callback(self._ref_answer_tasks.discard)
