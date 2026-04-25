@@ -96,6 +96,7 @@ async def interview_socket(websocket: WebSocket, session_id: UUID) -> None:
 
     await socket_manager.connect(session_id, websocket)
     runtime: SessionRuntime | None = None
+    drain_task: asyncio.Task | None = None
 
     try:
         # --- First-frame protocol ---
@@ -136,6 +137,12 @@ async def interview_socket(websocket: WebSocket, session_id: UUID) -> None:
             await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
             return
         await _drain_queue(websocket, runtime)
+
+        # Continuously pump fire-and-forget events (reference / observer)
+        # to the client as they land on the queue, otherwise they'd sit
+        # idle until the next inbound client frame and get rejected by
+        # the frontend's turn_index filter.
+        drain_task = asyncio.create_task(_continuous_drain(websocket, runtime))
 
         # --- Main loop ---
         current_audio_turn: int | None = None
@@ -239,6 +246,12 @@ async def interview_socket(websocket: WebSocket, session_id: UUID) -> None:
     except WebSocketDisconnect:
         pass
     finally:
+        if drain_task is not None:
+            drain_task.cancel()
+            try:
+                await drain_task
+            except (asyncio.CancelledError, Exception):
+                pass
         if runtime is not None:
             # Give any ref-answer task a short window so its event
             # lands before we shut down the queue.
@@ -305,6 +318,34 @@ async def _drain_queue(
                 continue
             return
         await websocket.send_json(_serialize_event(event))
+
+
+async def _continuous_drain(
+    websocket: WebSocket,
+    runtime: SessionRuntime,
+) -> None:
+    """Forever-loop pumping runtime events to the client.
+
+    The main WS handler only drains synchronously after a client frame,
+    which means fire-and-forget tasks (reference, observer) that finish
+    *between* client messages would sit on the queue indefinitely. By
+    the time the next client message arrives the turn has often moved
+    on and the frontend filters the event by turn_index.
+
+    This task is spawned alongside the main loop and cancelled in the
+    `finally` block.
+    """
+    try:
+        while True:
+            event = await runtime.event_queue.get()
+            try:
+                await websocket.send_json(_serialize_event(event))
+            except Exception:
+                # WS closed mid-flight: stop quietly. The outer finally
+                # block will tear down the runtime.
+                return
+    except asyncio.CancelledError:
+        return
 
 
 def _serialize_event(event: object) -> dict[str, Any]:
