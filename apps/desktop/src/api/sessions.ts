@@ -14,7 +14,14 @@ import { apiClient } from "@/api/client";
 export const createSession = async (
   request: CreateSessionRequest,
 ): Promise<CreateSessionResponse> => {
-  const response = await apiClient.post<CreateSessionResponse>("/api/v1/sessions", request);
+  // FrameworkAgent runs inline on POST /sessions; on slower LLM tiers
+  // (free siliconflow / deepseek) the framework synthesis routinely
+  // takes 40-90s. Default 30s axios timeout fires "timeout of 30000ms
+  // exceeded" mid-call. Allow 3 minutes here — the user is staring at
+  // the WaitingTips carousel in the meantime.
+  const response = await apiClient.post<CreateSessionResponse>("/api/v1/sessions", request, {
+    timeout: 180_000,
+  });
   return response.data;
 };
 

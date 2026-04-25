@@ -35,7 +35,14 @@ export const uploadJd = async (
 };
 
 export const triggerParse = async (assetBundleId: string): Promise<ParseRequestResponse> => {
-  const response = await apiClient.post<ParseRequestResponse>(`/api/v1/assets/${assetBundleId}/parse`);
+  // ParseAgent runs inline and processes the full resume + JD in one
+  // LLM call. Default axios 30s timeout fires mid-call on slower tiers.
+  // 3 minutes covers worst-case parse without trapping the user forever.
+  const response = await apiClient.post<ParseRequestResponse>(
+    `/api/v1/assets/${assetBundleId}/parse`,
+    undefined,
+    { timeout: 180_000 },
+  );
   return response.data;
 };
 
