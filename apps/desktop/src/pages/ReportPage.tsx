@@ -6,6 +6,7 @@ import type { InterviewReportResponse } from "@eatit/shared-types";
 import { generateReport, getSessionReport } from "@/api/sessions";
 import { PassProbabilityRing } from "@/pages/report/PassProbabilityRing";
 import { ReasonRow } from "@/pages/report/ReasonRow";
+import { WaitingTips } from "@/components/WaitingTips";
 // Side-effect stylesheet: adds @media print rules that hide chrome
 // and paginate ReasonRow entries cleanly. See print.css for details.
 import "@/pages/report/print.css";
@@ -150,13 +151,14 @@ export function ReportPage(): JSX.Element {
             <div className="shimmer" style={{ height: 12, width: "40%" }} />
           </div>
         </div>
-        <div className="ds-card" style={{ padding: 22, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div className="shimmer" style={{ height: 14, width: "30%" }} />
-          <div className="shimmer" style={{ height: 10, width: "80%" }} />
-          <div className="shimmer" style={{ height: 10, width: "75%" }} />
-          <div className="shimmer" style={{ height: 10, width: "82%" }} />
-        </div>
-        <div style={{ fontSize: 12.5, color: "var(--ink-500)" }}>通常约 20 秒</div>
+        <WaitingTips
+          title={
+            state.kind === "generating"
+              ? "AI 正在生成本场面试报告..."
+              : "正在加载报告..."
+          }
+          subtitle="通常约 20 秒。在此期间可以看看面试技巧。"
+        />
       </div>
     );
   }

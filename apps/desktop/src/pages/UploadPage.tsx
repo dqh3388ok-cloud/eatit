@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { getParseResult, triggerParse, uploadJd, uploadResume } from "@/api/assets";
 import { DropZone } from "@/pages/upload/DropZone";
 import { ParseResultCard } from "@/pages/upload/ParseResultCard";
+import { WaitingTips } from "@/components/WaitingTips";
 import { useAppStore } from "@/stores/app-store";
 
 function extractError(err: unknown): string {
@@ -195,6 +196,13 @@ export function UploadPage(): JSX.Element {
           下一步 · 面试配置
         </button>
       </div>
+
+      {upload.parseStatus === "running" ? (
+        <WaitingTips
+          title="AI 正在解析简历与岗位描述..."
+          subtitle="通常约 15 秒。在此期间可以看看面试技巧。"
+        />
+      ) : null}
 
       {upload.parsePayload ? <ParseResultCard payload={upload.parsePayload} /> : null}
     </div>

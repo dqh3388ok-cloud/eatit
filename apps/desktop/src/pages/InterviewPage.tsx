@@ -174,6 +174,38 @@ export function InterviewPage(): JSX.Element {
     };
   }, []);
 
+  // Pre-warm the OS mic permission as soon as the page mounts, so the
+  // first "按住说话" click doesn't sit on a TCC prompt mid-answer.
+  // Failures are silent: the user will see the actionable banner the
+  // moment they try to record. We also reuse the resulting stream to
+  // skip a second getUserMedia call inside handleVoiceStart.
+  useEffect(() => {
+    if (inputMode !== "voice") return;
+    if (asrAvailable === false) return;
+    if (micStreamRef.current) return;
+    let cancelled = false;
+    void (async () => {
+      const result = await requestMicPermission();
+      if (cancelled) {
+        if (result.ok) {
+          // Component unmounted while the OS dialog was open — release
+          // the device so the user's other apps don't see the green dot.
+          result.stream.getTracks().forEach((t) => t.stop());
+        }
+        return;
+      }
+      if (result.ok) {
+        micStreamRef.current = result.stream;
+      }
+      // On denial we deliberately don't surface anything yet; the user
+      // hasn't asked to record. handleVoiceStart shows the banner with
+      // the "打开系统设置" button when they actually need the mic.
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inputMode, asrAvailable]);
+
   useEffect(() => {
     // If the server can't do ASR, voice mode is unusable. Flip to text and
     // explain in a banner. Deliberately a one-way transition — the user can
@@ -678,38 +710,14 @@ export function InterviewPage(): JSX.Element {
         />
       ) : null}
 
-      {state.context.lastAssessment ? (
-        <section
-          className="ds-card"
-          style={{ padding: 18, display: "flex", flexDirection: "column", gap: 8 }}
-        >
-          <div style={{ fontSize: 12, color: "var(--ink-500)" }}>
-            上一轮复盘 · 第 {state.context.lastAssessment.turn_index} 轮
-          </div>
-          <div style={{ fontSize: 13.5, color: "var(--ink-900)", lineHeight: 1.6 }}>
-            {state.context.lastAssessment.summary}
-          </div>
-          {state.context.lastAssessment.strengths.length > 0 ||
-          state.context.lastAssessment.weaknesses.length > 0 ? (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {state.context.lastAssessment.strengths.map((s) => (
-                <span key={`s-${s}`} className="ds-tag ds-tag-green">
-                  ✓ {s}
-                </span>
-              ))}
-              {state.context.lastAssessment.weaknesses.map((w) => (
-                <span
-                  key={`w-${w}`}
-                  className="ds-tag"
-                  style={{ background: "var(--warn-softer)", color: "var(--warn)" }}
-                >
-                  △ {w}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </section>
-      ) : null}
+      {/*
+        Per-turn assessment summary intentionally suppressed in the live
+        view: showing strengths/weaknesses immediately after each answer
+        breaks the user's rhythm into the next question. The data is
+        still pushed to context (SERVER_ASSESSED) so it can roll up into
+        the final report; the live UI just doesn't render it. See the
+        post-interview ReportPage for the consolidated review.
+      */}
     </div>
   );
 
