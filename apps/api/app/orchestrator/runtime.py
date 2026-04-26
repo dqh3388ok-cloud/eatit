@@ -279,6 +279,9 @@ class SessionRuntime:
     ) -> None:
         if self._gateway is None:
             return
+        log = get_logger(__name__)
+        started_at = time.perf_counter()
+        log.info("eatit.observer.start", turn_index=turn_index)
         try:
             result = await asyncio.wait_for(
                 ObserverAgentService().run(
@@ -293,10 +296,25 @@ class SessionRuntime:
                 ),
                 timeout=_OBSERVER_TIMEOUT_SECONDS,
             )
-        except Exception:
+        except Exception as exc:
             # Observer is advisory; a broken observer must never break the
             # interview. Includes asyncio.TimeoutError + any LLMError.
+            # Log so a stuck "每轮作答完,这里会有一条 AI 观察" panel can be
+            # diagnosed instead of silently failing.
+            log.warning(
+                "eatit.observer.failed",
+                turn_index=turn_index,
+                error_type=type(exc).__name__,
+                error=str(exc),
+                elapsed_ms=int((time.perf_counter() - started_at) * 1000),
+            )
             return
+        log.info(
+            "eatit.observer.ready",
+            turn_index=turn_index,
+            elapsed_ms=int((time.perf_counter() - started_at) * 1000),
+            tone=result.tone,
+        )
         await self._event_queue.put(
             ObserverObservationEvent(
                 turn_index=turn_index,

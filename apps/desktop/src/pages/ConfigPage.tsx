@@ -7,6 +7,7 @@ import type {
   InterviewStyle,
 } from "@eatit/shared-types";
 import { createSession } from "@/api/sessions";
+import { WaitingTips } from "@/components/WaitingTips";
 import { useAppStore } from "@/stores/app-store";
 
 type TileOption<T extends string> = {
@@ -212,6 +213,13 @@ export function ConfigPage(): JSX.Element {
           {submitting ? "生成面试框架..." : "开始面试"}
         </button>
       </div>
+
+      {submitting ? (
+        <WaitingTips
+          title="AI 正在为你定制面试框架..."
+          subtitle="通常约 30-60 秒。在此期间可以看看面试技巧。"
+        />
+      ) : null}
     </div>
   );
 }
