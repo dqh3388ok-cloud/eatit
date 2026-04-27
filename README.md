@@ -1,127 +1,209 @@
-# Eatit
+<div align="center">
+  <img src="apps/desktop/src-tauri/icons/128x128.png" alt="Eatit" width="96" height="96" />
 
-Eatit is a monorepo for a resume + JD driven AI mock interview product. The current local main track is a zero-container desktop-friendly stack built on Tauri, FastAPI, SQLite, diskcache, local filesystem storage, and an in-process asyncio task queue.
+  <h1>Eatit</h1>
 
-## Structure
+  <p><strong>BYOK 的本地 AI 模拟面试官 · macOS 桌面应用</strong></p>
 
-- `apps/desktop`: Tauri 2.x + React 18 + TypeScript 5 + Vite desktop client
-- `apps/api`: FastAPI backend with uv, Alembic, structlog, and test scaffold
-- `packages/shared-types`: shared TypeScript types package
+  <p>
+    <a href="#%E5%AE%89%E8%A3%85"><img alt="platform" src="https://img.shields.io/badge/platform-macOS%2012%2B-lightgrey" /></a>
+    <a href="#%E6%8A%80%E6%9C%AF%E6%A0%88"><img alt="frontend" src="https://img.shields.io/badge/frontend-Tauri%202%20%2B%20React%2018-blue" /></a>
+    <a href="#%E6%8A%80%E6%9C%AF%E6%A0%88"><img alt="backend" src="https://img.shields.io/badge/backend-FastAPI%20%2B%20SQLite-success" /></a>
+    <a href="#%E6%8A%80%E6%9C%AF%E6%A0%88"><img alt="asr" src="https://img.shields.io/badge/ASR-faster--whisper%20local-orange" /></a>
+  </p>
 
-## Prerequisites
+  <p>
+    上传简历与 JD,自定义面试风格,Eatit 用你自己的 LLM Key 给你做一场结构化模拟面试,本地 SQLite,无登录,无云同步。
+  </p>
+</div>
 
-- Node.js 20+
-- `pnpm` or `corepack pnpm`
-- Python 3.11+
-- `uv`
-- Rust toolchain for Tauri desktop development
+---
 
-## Runtime Model
+## 为什么选 Eatit
 
-- Main local development path: no Docker required
-- Default persistence: SQLite at `.data/eatit.db`
-- Default cache: diskcache at `.data/cache`
-- Default file storage: local filesystem at `.data/storage`
-- Default background tasks: in-process asyncio task queue
-- Optional only: `docker-compose.yml` for compatibility debugging of legacy PostgreSQL / Redis / MinIO behavior
+- **完全本地**:简历、面试录音、回答记录、报告全部存在 `~/Library/Application Support/Eatit/`,不上传任何云
+- **BYOK(Bring Your Own Key)**:你用自己的 LLM Key 调 OpenAI / DeepSeek / 硅基流动 / 阿里云百炼 / Anthropic / 自定义 base_url,Eatit 不中转、不计费、不接触余额
+- **零依赖运行**:macOS 双击 DMG 即开,Python 后端 + SQLite + 本地 ASR 全部打包进 `.app`,不需要装 Docker / Homebrew / 任何运行时
+- **真实临场感**:面试官语音播报问题、按住说话录音、实时转写,跟真实电话面试节奏一致
+- **AI 全程辅助**:答题时可一键查看参考提纲;每轮答完右侧会有 AI 观察提醒;最终生成带证据绑定的评估报告
 
-## Quick Start
+## 截图
 
-1. Copy environment variables:
+> *截图位待补,可拖一张 Eatit 实机截图到 `docs/` 后引用*
 
-   ```bash
-   cp .env.example .env
-   cp apps/api/.env.example apps/api/.env
-   ```
+## 主要功能
 
-2. Install frontend workspace dependencies:
+| 模块 | 描述 |
+| --- | --- |
+| 简历 + JD 解析 | ParseAgent 从简历 + JD 提炼匹配点、亮点、风险、可深挖的项目 |
+| 自定义面试框架 | 选风格(友好引导 / 标准专业 / 高强度追问)、方向(岗位匹配 / 项目深挖 / 行为综合)、时长(15/20/30 min) |
+| 实时面试 | 语音 / 文字双模,本地 faster-whisper 做 ASR,中文语音播报问题 |
+| AI 参考答案 | 每轮问题刚出来时后台异步生成提纲 + 完整示例 + 评分关键点 + 常见误区,默认隐藏,一键展开 |
+| AI 实时观察 | 每轮答完 AI 给一句 ≤ 60 字的 support / alert / pivot 提醒 |
+| 评估报告 | 通过可能性环 + 证据绑定的维度评价 + 下一场行动建议,可一键打印为 PDF |
+| 综合分析 | 跨多场面试的 MetaReport,识别长期模式 |
 
-   ```bash
-   pnpm install
-   ```
+## 安装
 
-   If `pnpm` is not available globally, use:
+### 1) 下载 DMG
 
-   ```bash
-   corepack pnpm install
-   ```
+从 [Releases](https://github.com/dqh3388ok-cloud/eatit/releases) 下载最新的 `Eatit_x.x.x_aarch64.dmg`(Apple Silicon)。
 
-3. Install backend dependencies:
+### 2) 拖到 Applications
 
-   ```bash
-   cd apps/api && uv sync
-   ```
+打开 DMG,把 `Eatit.app` 拖到 `/Applications/`。
 
-4. Run SQLite migrations:
+### 3) 首次打开(绕过 Gatekeeper)
 
-   ```bash
-   cd apps/api && uv run alembic upgrade head
-   ```
+> ⚠️ Eatit 当前是 **ad-hoc 签名**(未购买 Apple Developer 证书),首次打开需要绕一次 Gatekeeper。Apple Developer 签名 + 公证在 Roadmap。
 
-5. Start the API server:
-
-   ```bash
-   cd apps/api && uv run uvicorn app.main:app --reload
-   ```
-
-6. Verify the health endpoint:
-
-   ```bash
-   curl localhost:8000/health
-   ```
-
-7. Run backend tests:
-
-   ```bash
-   cd apps/api && uv run pytest -v
-   ```
-
-8. Start the desktop app:
-
-   ```bash
-   cd apps/desktop && corepack pnpm tauri dev
-   ```
-
-## 构建未签名 DMG
-
-本地打一个未签名的 macOS 安装包用于自测或小范围分发:
+**最简单的方式**(macOS 14 / 15 都通用):打开「终端」,粘贴这一行回车
 
 ```bash
-rustup target add aarch64-apple-darwin   # 仅第一次需要
+xattr -cr /Applications/Eatit.app && open /Applications/Eatit.app
+```
+
+之后双击就能开,不需要再跑这条。
+
+> 或者:Finder 找到 Eatit → 右键 → 打开(macOS 14 及以下);macOS 15 Sequoia 上需要走「系统设置 → 隐私与安全性 → 仍要打开」。
+
+## 快速上手
+
+1. **配置 LLM Key** —— 设置 → 选 Provider(默认硅基流动) → 粘贴 API Key → 测试连接
+2. **上传简历 + JD** —— 拖拽 PDF/文本文件 → 点「开始 AI 解析」
+3. **配置面试** —— 选风格 / 方向 / 时长 → 点「开始面试」(等 30–60 秒生成框架)
+4. **答题** —— 听 AI 面试官提问(语音/文字),按住说话或键入回答
+5. **拿报告** —— 答完点「提前结束」或自然结束,AI 生成带证据绑定的评估报告
+
+## 技术栈
+
+| 层 | 选型 |
+| --- | --- |
+| 桌面壳 | Tauri 2.10 + Wry(WKWebView) |
+| 前端 | React 18 + TypeScript 5 + Vite + XState + TanStack Query + Zustand |
+| 后端 | Python 3.11 + FastAPI + SQLAlchemy 2(async) + Alembic + structlog |
+| 数据 | SQLite + WAL 模式 + 本地文件系统(`~/Library/Application Support/Eatit/`) |
+| LLM 接入 | LiteLLM + Instructor(强制 JSON) + tenacity(重试) |
+| Agent 编排 | LangGraph + asyncio TaskGroup |
+| 语音识别 | faster-whisper(CTranslate2 + PyAV)本地推理 |
+| 语音合成 | Web Speech API(macOS 系统中文语音) |
+| 打包 | PyInstaller(后端 onedir) + Tauri bundler + ad-hoc 签名 |
+
+## 架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│   Eatit.app (Tauri 2)                                   │
+│  ┌────────────────────────┐   ┌──────────────────────┐  │
+│  │  React UI (WebView)    │ ──── invoke ────►        │  │
+│  │  - InterviewPage XState│   │  Rust core          │  │
+│  │  - WS / REST clients   │   │  - keyring (LLM Key)│  │
+│  └────────────────────────┘   │  - spawn backend    │  │
+│                  │             │  - open_system_url  │  │
+│                  │ 127.0.0.1   └──────────┬───────────┘  │
+│                  │             :random      │             │
+│                  ▼                          ▼             │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │ FastAPI backend (PyInstaller frozen)           │  │
+│  │ ├─ /api/v1/parse   ParseAgent                  │  │
+│  │ ├─ POST /sessions  FrameworkAgent              │  │
+│  │ ├─ /ws/sessions    InterviewerAgent + LangGraph│  │
+│  │ │                  (assess ∥ compress) →       │  │
+│  │ │                  next_question + reference   │  │
+│  │ │                  + observer (fire-and-forget)│  │
+│  │ └─ POST /report    ReportAgent (TaskQueue)     │  │
+│  └────────────────────────────────────────────────┘  │
+│                          │                              │
+│                          ▼                              │
+│       ~/Library/Application Support/Eatit/              │
+│       ├─ eatit.db (SQLite + WAL)                        │
+│       ├─ cache/                                         │
+│       └─ storage/                                       │
+└─────────────────────────────────────────────────────────┘
+
+LLM 调用全程走用户的 BYOK 配置,key 仅在请求 header 里以 base64 JSON 携带,
+不落库 / 不进日志 / 不进 Sentry。请求结束即从内存丢弃。
+```
+
+## 从源码构建
+
+<details>
+<summary>展开开发环境配置</summary>
+
+### 前置依赖
+
+- Node.js 20+ 与 `pnpm`(可用 `corepack enable`)
+- Python 3.11+ 与 [`uv`](https://docs.astral.sh/uv/)
+- Rust 工具链 + `aarch64-apple-darwin` target
+- Xcode Command Line Tools
+
+```bash
+rustup target add aarch64-apple-darwin
+```
+
+### 启动开发模式
+
+```bash
+# 1. 安装依赖
+pnpm install
+cd apps/api && uv sync && cd ../..
+
+# 2. 跑迁移
+cd apps/api && uv run alembic upgrade head && cd ../..
+
+# 3. 起后端(终端 A)
+cd apps/api && uv run uvicorn app.main:app --reload
+
+# 4. 起桌面 app(终端 B)
+pnpm --dir apps/desktop tauri dev
+```
+
+### 跑测试
+
+```bash
+# 后端
+cd apps/api && uv run pytest -v
+
+# 前端 lint + 类型检查
+pnpm --dir apps/desktop lint
+pnpm --dir apps/desktop exec tsc --noEmit
+```
+
+### 打 DMG
+
+```bash
 scripts/build-unsigned-dmg.sh
 ```
 
-脚本封装了 `corepack pnpm build:dmg`(等价于 `tauri build --target aarch64-apple-darwin --bundles dmg`),完整 release 构建冷启动 10 分钟量级。产物路径:
+产物:`apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/Eatit_x.x.x_aarch64.dmg`(约 127 MB,冷构建 8–10 min)。
 
-```
-apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/Eatit_0.1.0_aarch64.dmg
-```
+</details>
 
-> ⚠️ 此 DMG 未经 Apple 代码签名与公证。**第一次打开需要在 访达 中右键 → 打开**,或到 系统设置 > 隐私与安全性 中手动放行。代码签名与 notarization 是后续迭代(Phase 5 P5.3)的事。
+## 隐私与数据流
 
-## Optional Compatibility Debugging
+- LLM Key 存 macOS Keychain(service=`com.eatit.desktop`)
+- 简历 / JD / 面试转写 / 报告全部本地 SQLite,**永不上传**
+- LLM 调用直连用户在设置里填的 base_url(默认走对应 provider 官方)
+- 无埋点、无 telemetry、无自动更新
 
-If you explicitly need to inspect legacy containerized behavior, you can start the optional stack:
+## Roadmap
 
-   ```bash
-   docker compose up -d
-   ```
+- [x] Phase 1–4 基础闭环(BYOK / 6 Agent / LangGraph / 语音面试)
+- [x] Phase 5.1–5.6 打包 + 错误边界 + Sentry scaffold + PDF 导出
+- [ ] Phase 5.3:Apple Developer 签名 + 公证(消除 `xattr -cr` 步骤)
+- [ ] 一键获取 API Key 跳转(参考 Cherry Studio)
+- [ ] 报告深化:拉分/扣分项展开、下一场 drill 建议
+- [ ] 面试记录搜索 / 筛选 / 「再来一场同岗位」CTA
+- [ ] 跨平台:Windows + Linux 构建(目前仅 Apple Silicon macOS)
 
-That stack is only for local debugging of PostgreSQL, Redis, and MinIO compatibility. It is not required for the main desktop application flow.
+## License
 
-## Current Stage Scope
+License TBD —— 当前仓库尚未添加 LICENSE 文件。在添加前请勿用于商业用途。
 
-- Monorepo workspace wiring
-- Desktop hello world shell with route debug entries
-- API hello world shell with `/health`
-- SQLite mainline persistence with local cache, storage, and task queue abstractions
-- Optional Docker Compose stack for legacy infrastructure compatibility checks
-- Shared types package placeholder
+## 致谢
 
-This README will be expanded as the project moves into real product modules.
-
-## Phase 2 Snapshot
-
-- Backend now includes the SQLite mainline schema, Alembic migration, Pydantic API contracts, mock `/api/v1` endpoints, and a placeholder WebSocket session endpoint
-- Desktop now includes typed API hooks in `apps/desktop/src/api` and shared contracts in `packages/shared-types`
-- Current auth is a fixed mock dependency for local development and test wiring
+- [LiteLLM](https://github.com/BerriAI/litellm) —— provider 抽象
+- [Instructor](https://github.com/jxnl/instructor) —— 强制 LLM 输出 schema
+- [LangGraph](https://github.com/langchain-ai/langgraph) —— 多 Agent 编排
+- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) —— 本地 ASR
+- [Tauri](https://tauri.app) —— 跨平台桌面壳
